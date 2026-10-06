@@ -5,9 +5,9 @@
   "private": true,
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "build": "pnpm run typecheck && pnpm --filter ./dropcart-store run build",
+    "build": "cd dropcart-store && pnpm run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm --filter \"./dropcart-store\" --filter \"./scripts\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs"
   },
   "devDependencies": {
     "prettier": "^3.9.6",
