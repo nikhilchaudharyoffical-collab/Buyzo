@@ -1,3 +1,7 @@
+window.onerror = function (msg, url, line) {
+  alert("RUNTIME ERROR: " + msg + " at " + line);
+};
+
 import { createRoot } from 'react-dom/client';
 import { setBaseUrl } from '@workspace/api-client-react';
 
