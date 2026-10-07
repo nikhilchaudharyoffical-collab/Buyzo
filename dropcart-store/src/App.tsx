@@ -286,7 +286,7 @@ function PurchaseModal({
 }
 
 function ProductPage() {
-  const { data: products, isLoading, isError } = useListProducts();
+  const { data: products, isLoading, isError, error } = useListProducts();
   const [isCheckoutOpen, setCheckoutOpen] = useState(false);
   const trackEvent = useTrackAnalyticsEvent();
   const product = products?.[0];
@@ -296,8 +296,8 @@ function ProductPage() {
   }, [product?.id]);
 
   if (isLoading) return <div className="page-loader"><div className="loader-orb" /><span>Preparing your product experience...</span></div>;
-  if (isError || !product) return <div className="empty-state"><Package size={30} /><h2>Product unavailable</h2><p>This product is currently being refreshed. Please check back shortly.</p></div>;
-
+  if (isError || !product) return <div className="empty-state"><Package size={30} /><h2>Product unavailable</h2><p>This product is currently being refreshed. Please check back shortly.</p><pre style={{whiteSpace: "pre-wrap", textAlign: "left", background: "#eee", padding: "10px", marginTop: "10px", fontSize: "11px"}}>{"TEMP DEBUG:\n"}isError: {String(isError)}{"\n"}error: {error ? String((error as any).message || error) : "none"}{"\n"}products: {JSON.stringify(products)}</pre></div>;
+  
   return (
     <div className="storefront">
       <AppHeader />
