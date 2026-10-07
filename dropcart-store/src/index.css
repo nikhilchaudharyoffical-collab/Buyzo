@@ -172,6 +172,9 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
 .payment-check { color: var(--purple); }
 .order-total { display: flex; justify-content: space-between; padding: 14px 0; border-top: 1px solid var(--line); font-size: 12px; margin-bottom: 12px; }
 .order-total strong { font-size: 18px; }
+.order-savings { display: flex; flex-wrap: wrap; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--line); font-size: 11px; color: #6b6f73; row-gap: 4px; }
+.order-savings strong { font-weight: 700; }
+.order-savings .savings-line { color: var(--green); }
 .wide { width: 100%; }
 .form-error { color: #c55252; font-size: 11px; display: block; margin: 9px 0; }
 .success-state { text-align: center; padding: 33px 10px 10px; }
