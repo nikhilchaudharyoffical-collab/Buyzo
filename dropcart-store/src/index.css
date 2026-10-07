@@ -194,6 +194,19 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
 .success-check { width: 66px; height: 66px; border-radius: 50%; color: white; background: var(--green); display: grid; place-items: center; animation: pop .5s .12s both; box-shadow: 0 10px 25px rgba(25,138,99,.25); }
 .success-delivery { display: inline-flex; gap: 8px; align-items: center; background: #eff9f4; color: var(--green); padding: 11px 15px; border-radius: 99px; margin: 16px 0 25px; font-size: 11px; }
 .success-delivery strong { color: #1c624a; }
+/* Payment selection pulse */
+.payment-option.just-selected { animation: select-pulse .5s ease; }
+@keyframes select-pulse { 0% { transform: scale(1); } 35% { transform: scale(1.03); } 100% { transform: scale(1); } }
+.offer-toast { position: absolute; top: -34px; right: 8px; display: inline-flex; align-items: center; gap: 5px; background: #1c624a; color: #fff; font-size: 10px; font-weight: 700; padding: 6px 10px; border-radius: 99px; box-shadow: 0 6px 14px rgba(28,98,74,.3); animation: toast-in .4s ease; z-index: 3; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(6px) scale(.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+/* Offers unlocked, shown on the order confirmation screen */
+.success-offers { background: #f7f8f5; border-radius: 14px; padding: 14px 16px; margin: 0 0 20px; text-align: left; animation: offer-pop .4s ease; }
+.success-offers-title { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #9a9d9f; margin-bottom: 10px; }
+.success-offer-row { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #4b4e52; padding: 6px 0; }
+.success-offer-row svg { color: var(--green); flex-shrink: 0; }
+.success-offer-row span { flex: 1; }
+.success-offer-row strong { color: #1c624a; }
 .page-loader, .empty-state { min-height: 80vh; display: grid; place-content: center; justify-items: center; gap: 12px; color: #8e9297; font-size: 12px; }
 .loader-orb { width: 32px; height: 32px; border: 3px solid #dfdbf9; border-top-color: var(--purple); border-radius: 50%; animation: spin 1s linear infinite; }
 .empty-state svg { color: var(--purple); }
