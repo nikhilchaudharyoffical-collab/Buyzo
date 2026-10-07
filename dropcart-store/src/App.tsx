@@ -235,7 +235,7 @@ function PurchaseModal({
             <form onSubmit={submit}>
               <div className="field-grid">
                 <label>Full name<input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" /></label>
-                <label>Phone or email<input required value={contact} onChange={(event) => setContact(event.target.value)} placeholder="How should we reach you?" /></label>
+                <label>Phone number<input required type="tel" inputMode="numeric" pattern="[0-9]{10}" maxLength={10} value={contact} onChange={(event) => setContact(event.target.value.replace(/\D/g, "").slice(0, 10))} placeholder="10-digit mobile number" /></label>
               </div>
               <div className="address-heading">
                 <span className="field-label">Delivery address</span>
