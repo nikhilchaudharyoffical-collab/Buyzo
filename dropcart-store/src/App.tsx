@@ -184,6 +184,7 @@ function PurchaseModal({
   const [contact, setContact] = useState("");
   const [address, setAddress] = useState("");
   const [confirmed, setConfirmed] = useState<Order | null>(null);
+  const [justSelected, setJustSelected] = useState<OrderInputPaymentMethod | null>(null);
   const createOrder = useCreateOrder();
   const trackEvent = useTrackAnalyticsEvent();
   const subtotal = product.price * quantity;
@@ -191,6 +192,12 @@ function PurchaseModal({
   const upiDiscount = payment === OrderInputPaymentMethod.UPI ? Math.round(subtotal * UPI_DISCOUNT_RATE) : 0;
   const total = subtotal - upiDiscount;
   const deliveryDate = getDeliveryDate(payment === OrderInputPaymentMethod.UPI ? 5 : 10);
+
+  const selectPayment = (method: OrderInputPaymentMethod) => {
+    setPayment(method);
+    setJustSelected(method);
+    window.setTimeout(() => setJustSelected((current) => (current === method ? null : current)), 650);
+  };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -228,6 +235,14 @@ function PurchaseModal({
             <h2>You're all set, {confirmed.customerName.split(" ")[0]}.</h2>
             <p>Your order <strong>#{confirmed.id}</strong> is confirmed. We'll get it moving right away.</p>
             <div className="success-delivery"><Truck size={19} /><span>Arriving by <strong>{formatDate(confirmed.deliveryDate)}</strong></span></div>
+            {confirmed.paymentMethod === OrderInputPaymentMethod.UPI && (
+              <div className="success-offers">
+                <span className="success-offers-title">Offers you unlocked</span>
+                <div className="success-offer-row"><Percent size={14} /><span>1.5% UPI discount applied</span><strong>−{money(upiDiscount)}</strong></div>
+                <div className="success-offer-row"><Truck size={14} /><span>Fast-track delivery</span><strong>5 days</strong></div>
+                <div className="success-offer-row"><Gift size={14} /><span>Cashback credited soon</span><strong>₹50</strong></div>
+              </div>
+            )}
             <button className="primary-button wide" onClick={onClose}>Continue shopping <ArrowRight size={17} /></button>
           </div>
         ) : (
@@ -261,7 +276,7 @@ function PurchaseModal({
               </div>
               <span className="field-label">Payment method</span>
               <div className="payment-options">
-                <button type="button" className={`payment-option ${payment === OrderInputPaymentMethod.COD ? "selected" : ""}`} onClick={() => setPayment(OrderInputPaymentMethod.COD)}>
+                <button type="button" className={`payment-option ${payment === OrderInputPaymentMethod.COD ? "selected" : ""} ${justSelected === OrderInputPaymentMethod.COD ? "just-selected" : ""}`} onClick={() => selectPayment(OrderInputPaymentMethod.COD)}>
                   <span className="payment-icon"><Package size={17} /></span><span><strong>Cash on delivery</strong><small>Pay when your order arrives</small></span>{payment === OrderInputPaymentMethod.COD && <Check size={17} className="payment-check" />}
                 </button>
                 <div className="upi-card-wrap">
@@ -270,9 +285,12 @@ function PurchaseModal({
                     <span className="upi-offer-chip"><Truck size={11} /> 5-day delivery</span>
                     <span className="upi-offer-chip"><Gift size={11} /> ₹50 cashback</span>
                   </div>
-                  <button type="button" className={`payment-option upi-option ${payment === OrderInputPaymentMethod.UPI ? "selected" : ""}`} onClick={() => setPayment(OrderInputPaymentMethod.UPI)}>
+                  <button type="button" className={`payment-option upi-option ${payment === OrderInputPaymentMethod.UPI ? "selected" : ""} ${justSelected === OrderInputPaymentMethod.UPI ? "just-selected" : ""}`} onClick={() => selectPayment(OrderInputPaymentMethod.UPI)}>
                     <span className="payment-icon upi"><CreditCard size={17} /></span><span><strong>UPI payment</strong><small>Pay now — unlock the offers above</small></span>{payment === OrderInputPaymentMethod.UPI && <Check size={17} className="payment-check" />}
                   </button>
+                  {justSelected === OrderInputPaymentMethod.UPI && (
+                    <div className="offer-toast"><Sparkles size={13} fill="currentColor" /> Offers unlocked!</div>
+                  )}
                 </div>
               </div>
               {upiDiscount > 0 && (
