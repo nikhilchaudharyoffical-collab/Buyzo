@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type TouchEvent } from "react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Route, Switch, useLocation, Router as WouterRouter } from "wouter";
 import {
@@ -104,14 +104,60 @@ function Rating({ rating, count }: { rating: number; count?: number }) {
   );
 }
 
+function BogoBadge({ className = "" }: { className?: string }) {
+  const phrases = ["Buy 1 Get 1 Free", "1 खरीदो, 1 मुफ़्त पाओ"];
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setIndex((current) => (current + 1) % phrases.length), 2200);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <span className={`bogo-badge ${className}`}>
+      <Sparkles size={12} fill="currentColor" />
+      <span className="bogo-badge-text" key={index}>{phrases[index]}</span>
+    </span>
+  );
+}
+
 function ProductGallery({ product }: { product: Product }) {
   const [active, setActive] = useState(0);
+  const touchStartX = useState({ current: 0 })[0];
+  const discountPercent = Math.round((1 - product.price / product.compareAtPrice) * 100);
+
+  const goTo = (index: number) => {
+    const count = product.images.length;
+    setActive(((index % count) + count) % count);
+  };
+
+  const onTouchStart = (event: TouchEvent) => {
+    touchStartX.current = event.touches[0].clientX;
+  };
+  const onTouchEnd = (event: TouchEvent) => {
+    const deltaX = event.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(deltaX) < 40) return;
+    if (deltaX < 0) goTo(active + 1);
+    else goTo(active - 1);
+  };
+
   return (
     <div className="gallery-wrap">
-      <div className="gallery-main">
+      <div className="gallery-main" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <img src={product.images[active]} alt={`${product.name} view ${active + 1}`} />
+        {discountPercent > 0 && <span className="discount-sticker">{discountPercent}% OFF</span>}
+        <BogoBadge className="gallery-bogo" />
         <span className="gallery-tag"><Zap size={13} fill="currentColor" /> Bestseller</span>
         <button className="gallery-fav" aria-label="Add to wishlist"><Heart size={19} /></button>
+        {product.images.length > 1 && (
+          <>
+            <button type="button" className="gallery-nav prev" aria-label="Previous image" onClick={() => goTo(active - 1)}><ChevronLeft size={18} /></button>
+            <button type="button" className="gallery-nav next" aria-label="Next image" onClick={() => goTo(active + 1)}><ChevronRight size={18} /></button>
+            <div className="gallery-dots">
+              {product.images.map((image, index) => (
+                <button key={image} type="button" className={`gallery-dot ${active === index ? "active" : ""}`} aria-label={`Go to image ${index + 1}`} onClick={() => goTo(index)} />
+              ))}
+            </div>
+          </>
+        )}
       </div>
       <div className="gallery-thumbs">
         {product.images.map((image, index) => (
@@ -275,7 +321,7 @@ function PurchaseModal({
                 </button>
               </div>
               <div className="order-total"><span>Total payable</span><strong>{money(total)}</strong></div>
-              <button className="primary-button wide" disabled={createOrder.isPending}>{createOrder.isPending ? "Securing your order..." : "Confirm order"} <ArrowRight size={17} /></button>
+              <button className="primary-button wide" disabled={createOrder.isPending}>{createOrder.isPending ? "Securing your order..." : "Confirm order"} <ArrowRight size={17} /><BogoBadge className="buy-button-bogo" /></button>
               {createOrder.isError && <p className="form-error">We couldn't place the order. Please check your details and try again.</p>}
             </form>
           </>
@@ -318,7 +364,7 @@ function ProductPage() {
               {product.highlights.map((highlight, index) => <div key={highlight} className="feature-item"><span className="feature-number">0{index + 1}</span><span>{highlight}</span></div>)}
             </div>
             <div className="stock-note"><span className="stock-dot" /> Only {product.stock} units left in this batch <span className="stock-progress"><span /></span></div>
-            <button className="primary-button buy-button" onClick={() => { trackEvent.mutate({ data: { type: "click", productId: product.id } }); setCheckoutOpen(true); }}>Buy now <ArrowRight size={18} /></button>
+            <button className="primary-button buy-button" onClick={() => { trackEvent.mutate({ data: { type: "click", productId: product.id } }); setCheckoutOpen(true); }}>Buy now <ArrowRight size={18} /><BogoBadge className="buy-button-bogo" /></button>
             <div className="promise-grid"><div><Truck size={17} /><span><strong>Arrives by {formatDate(getDeliveryDate(10))}</strong><small>Free standard delivery</small></span></div><div><ShieldCheck size={17} /><span><strong>7-day easy returns</strong><small>No questions asked</small></span></div></div>
           </section>
         </div>
@@ -328,7 +374,7 @@ function ProductPage() {
         </section>
         <section className="review-strip"><div className="review-score"><strong>{product.rating}</strong><div><Rating rating={product.rating} /><span>Based on {product.reviewCount} reviews</span></div></div><div className="review-tags"><span>Feels premium</span><span>Fast delivery</span><span>Great battery</span><span>Worth the price</span></div></section>
       </main>
-      <div className="mobile-buy-bar"><div><span>From</span><strong>{money(product.price)}</strong></div><button className="primary-button" onClick={() => setCheckoutOpen(true)}>Buy now <ArrowRight size={17} /></button></div>
+      <div className="mobile-buy-bar"><div><span>From</span><strong>{money(product.price)}</strong></div><button className="primary-button" onClick={() => setCheckoutOpen(true)}>Buy now <ArrowRight size={17} /><BogoBadge className="buy-button-bogo" /></button></div>
       {isCheckoutOpen && <PurchaseModal product={product} onClose={() => setCheckoutOpen(false)} />}
     </div>
   );
@@ -452,7 +498,7 @@ function AdminWorkspace({ onLogout }: { onLogout: () => void }) {
   };
   return <div className="admin-shell">
     <aside className={`admin-sidebar ${mobileNav ? "open" : ""}`}>
-      <div className="sidebar-brand"><span className="brand-mark"><Sparkles size={17} fill="currentColor" /></span><span>dropcart<span className="brand-dot">.</span></span><button className="icon-button sidebar-close" onClick={() => setMobileNav(false)}><X size={18} /></button></div>
+      <div className="sidebar-brand"><span className="brand-mark"><Sparkles size={17} fill="currentColor" /></span><span>BuyDo<span className="brand-dot">.</span></span><button className="icon-button sidebar-close" onClick={() => setMobileNav(false)}><X size={18} /></button></div>
       <div className="workspace-pill"><span className="online-dot" /> Live workspace <ChevronRight size={14} /></div>
       <span className="sidebar-label">Operate</span>
       <nav className="admin-nav"><button className={activeTab === "overview" ? "active" : ""} onClick={() => nav("overview")}><LayoutDashboard size={17} /> Overview</button><button className={activeTab === "products" ? "active" : ""} onClick={() => nav("products")}><Tag size={17} /> Products <span>{products.length}</span></button><button className={activeTab === "orders" ? "active" : ""} onClick={() => nav("orders")}><ShoppingBag size={17} /> Orders <span>{orders.filter((order) => order.status === "Processing").length || ""}</span></button></nav>
