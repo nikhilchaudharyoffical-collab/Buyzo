@@ -84,7 +84,7 @@ function AppHeader({ onMenu }: { onMenu?: () => void }) {
         </button>
         <button className="brand" onClick={() => navigate("/")}>
           <span className="brand-mark"><Sparkles size={17} fill="currentColor" /></span>
-          <span>dropcart<span className="brand-dot">.</span></span>
+          <span>BuyDo<span className="brand-dot">.</span></span>
         </button>
         <div className="topbar-actions">
           <span className="trust-note"><ShieldCheck size={16} /> Secure checkout</span>
