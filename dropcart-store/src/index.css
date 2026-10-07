@@ -162,6 +162,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
 .delivery-preview strong { font-size: 13px; }
 .delivery-preview span:last-child { color: var(--green); font-size: 10px; }
 .payment-options { display: grid; gap: 8px; margin-bottom: 20px; }
+.payment-options .upi-card-wrap { margin-top: 12px; }
 .payment-option { border: 1px solid #e1e2de; background: #fff; border-radius: 11px; padding: 11px; display: flex; align-items: center; gap: 10px; text-align: left; }
 .payment-option.selected { border-color: var(--purple); box-shadow: 0 0 0 2px rgba(108,86,231,.1); }
 .payment-icon { display: grid; place-items: center; width: 33px; height: 33px; color: #5e54bf; background: #ece9ff; border-radius: 9px; }
@@ -170,12 +171,14 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
 .payment-option strong { font-size: 11px; }
 .payment-option small { color: #92969b; font-size: 10px; }
 .payment-check { color: var(--purple); }
-.upi-offer-strip { display: flex; flex-wrap: wrap; gap: 6px; margin: -2px 0 2px; }
-.upi-offer-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 9.5px; font-weight: 800; color: #fff; padding: 5px 9px; border-radius: 99px; background: linear-gradient(135deg, #ff9a44, #e0634c); box-shadow: 0 4px 10px rgba(224,99,76,.28); white-space: nowrap; animation: offer-pop .3s ease; }
-.upi-offer-chip:nth-child(2) { background: linear-gradient(135deg, #38b887, #1d9b6c); box-shadow: 0 4px 10px rgba(29,155,108,.28); }
-.upi-offer-chip:nth-child(3) { background: linear-gradient(135deg, #8a6ff0, #6c56e7); box-shadow: 0 4px 10px rgba(108,86,231,.28); }
-@keyframes offer-pop { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: scale(1); } }
-.payment-option.upi-option { position: relative; }
+/* UPI card + its floating offer banner, designed as one connected unit */
+.upi-card-wrap { position: relative; padding-top: 14px; border-radius: 14px; background: linear-gradient(135deg, #e9fff5, #f1ecff); border: 1px solid #cdeedd; }
+.upi-offer-strip { position: absolute; top: -11px; left: 12px; right: 12px; display: flex; justify-content: center; gap: 5px; z-index: 2; animation: offer-pop .35s ease; }
+.upi-offer-chip { display: inline-flex; align-items: center; gap: 3px; font-size: 9px; font-weight: 800; color: #fff; padding: 5px 8px; border-radius: 99px; background: linear-gradient(135deg, #ff9a44, #e0634c); box-shadow: 0 3px 8px rgba(224,99,76,.35), 0 0 0 2px #fff; white-space: nowrap; }
+.upi-offer-chip:nth-child(2) { background: linear-gradient(135deg, #38b887, #1d9b6c); box-shadow: 0 3px 8px rgba(29,155,108,.35), 0 0 0 2px #fff; }
+.upi-offer-chip:nth-child(3) { background: linear-gradient(135deg, #8a6ff0, #6c56e7); box-shadow: 0 3px 8px rgba(108,86,231,.35), 0 0 0 2px #fff; }
+@keyframes offer-pop { from { opacity: 0; transform: translateY(4px) scale(.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.payment-option.upi-option { position: relative; margin: 0 2px 2px; width: calc(100% - 4px); background: #fff; border-color: #cdeedd; }
 .payment-option.upi-option.selected { border-color: #1d9b6c; box-shadow: 0 0 0 2px rgba(29,155,108,.12); }
 .order-total { display: flex; justify-content: space-between; padding: 14px 0; border-top: 1px solid var(--line); font-size: 12px; margin-bottom: 12px; }
 .order-total strong { font-size: 18px; }
