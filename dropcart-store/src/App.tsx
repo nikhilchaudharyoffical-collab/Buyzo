@@ -15,9 +15,11 @@ import {
   ImagePlus,
   LayoutDashboard,
   LockKeyhole,
+  Gift,
   Menu,
   Package,
   Pencil,
+  Percent,
   Plus,
   RefreshCcw,
   Search,
@@ -262,7 +264,12 @@ function PurchaseModal({
                 <button type="button" className={`payment-option ${payment === OrderInputPaymentMethod.COD ? "selected" : ""}`} onClick={() => setPayment(OrderInputPaymentMethod.COD)}>
                   <span className="payment-icon"><Package size={17} /></span><span><strong>Cash on delivery</strong><small>Pay when your order arrives</small></span>{payment === OrderInputPaymentMethod.COD && <Check size={17} className="payment-check" />}
                 </button>
-                <button type="button" className={`payment-option ${payment === OrderInputPaymentMethod.UPI ? "selected" : ""}`} onClick={() => setPayment(OrderInputPaymentMethod.UPI)}>
+                <div className="upi-offer-strip">
+                  <span className="upi-offer-chip"><Percent size={12} /> Up to 10% off</span>
+                  <span className="upi-offer-chip"><Truck size={12} /> 5-day fast delivery</span>
+                  <span className="upi-offer-chip"><Gift size={12} /> ₹50 cashback</span>
+                </div>
+                <button type="button" className={`payment-option upi-option ${payment === OrderInputPaymentMethod.UPI ? "selected" : ""}`} onClick={() => setPayment(OrderInputPaymentMethod.UPI)}>
                   <span className="payment-icon upi"><CreditCard size={17} /></span><span><strong>UPI payment</strong><small>Pay now and get it within 5 days</small></span>{payment === OrderInputPaymentMethod.UPI && <Check size={17} className="payment-check" />}
                 </button>
               </div>
