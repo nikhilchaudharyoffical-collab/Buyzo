@@ -84,7 +84,7 @@ a { color: inherit; text-decoration: none; }
 .stock-dot, .online-dot { width: 7px; height: 7px; display: inline-block; border-radius: 50%; background: #28b17c; box-shadow: 0 0 0 4px rgba(40,177,124,.13); }
 .stock-progress { flex: 1; background: #ecece8; height: 4px; max-width: 90px; border-radius: 4px; margin-left: 3px; overflow: hidden; }
 .stock-progress span { display: block; height: 100%; width: 34%; background: var(--orange); border-radius: inherit; }
-.primary-button, .secondary-button { border: 0; border-radius: 11px; min-height: 45px; padding: 0 18px; display: inline-flex; gap: 10px; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; transition: transform .2s, box-shadow .2s, background .2s; }
+.primary-button, .secondary-button { border: 0; border-radius: 11px; min-height: 45px; padding: 8px 18px; display: inline-flex; gap: 10px; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; transition: transform .2s, box-shadow .2s, background .2s; flex-wrap: wrap; row-gap: 4px; }
 .primary-button { background: var(--purple); color: white; box-shadow: 0 9px 20px rgba(108,86,231,.2); }
 .primary-button:hover { background: var(--purple-dark); transform: translateY(-1px); box-shadow: 0 12px 24px rgba(108,86,231,.25); }
 .primary-button:disabled { opacity: .6; pointer-events: none; }
