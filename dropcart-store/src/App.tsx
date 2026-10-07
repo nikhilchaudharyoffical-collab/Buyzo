@@ -74,6 +74,27 @@ const getDeliveryDate = (days: number) => {
   return date.toISOString().slice(0, 10);
 };
 
+// Open Location Code (Plus Code) encoder — Google's public algorithm,
+// computed locally with no API key. Gives a precise, shareable code for
+// a lat/lon pair (e.g. "7JMV+2X"), useful when street-level reverse
+// geocoding data is thin for a given area.
+const OLC_ALPHABET = "23456789CFGHJMPQRVWX";
+const OLC_PAIR_RESOLUTIONS = [20, 1, 0.05, 0.0025, 0.000125];
+function encodePlusCode(latitude: number, longitude: number): string {
+  let lat = Math.min(90, Math.max(-90, latitude)) + 90;
+  let lon = ((longitude + 180) % 360 + 360) % 360;
+  let code = "";
+  for (let i = 0; i < 5; i++) {
+    const latDigit = Math.floor(lat / OLC_PAIR_RESOLUTIONS[i]);
+    const lonDigit = Math.floor(lon / OLC_PAIR_RESOLUTIONS[i]);
+    lat -= latDigit * OLC_PAIR_RESOLUTIONS[i];
+    lon -= lonDigit * OLC_PAIR_RESOLUTIONS[i];
+    code += OLC_ALPHABET[latDigit] + OLC_ALPHABET[lonDigit];
+    if (i === 1) code += "+";
+  }
+  return code;
+}
+
 function AppHeader({ onMenu }: { onMenu?: () => void }) {
   const [, navigate] = useLocation();
   return (
@@ -193,7 +214,30 @@ function PurchaseModal({
   const total = product.price * quantity;
   const deliveryDate = getDeliveryDate(payment === OrderInputPaymentMethod.UPI ? 5 : 10);
 
-  const pickLocation = () => {
+  const reverseGeocode = async (latitude: number, longitude: number) => {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=en-IN`,
+      { headers: { "Accept-Language": "en-IN" } },
+    );
+    if (!response.ok) throw new Error("Reverse geocoding failed");
+    const result = await response.json() as { display_name?: string; address?: Record<string, string> };
+    if (!result.display_name) throw new Error("No address found for this location");
+    const a = result.address ?? {};
+    const houseStreet = [a.house_number, a.road].filter(Boolean).join(" ");
+    const locality = a.suburb || a.neighbourhood || a.quarter || "";
+    const city = a.city || a.town || a.village || a.county || "";
+    const state = a.state || "";
+    const pin = a.postcode || "";
+    const structured = [houseStreet, locality, city, state, pin].filter(Boolean).join(", ");
+    return structured || result.display_name;
+  };
+
+  const getPosition = (options: PositionOptions) =>
+    new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, options);
+    });
+
+  const pickLocation = async () => {
     if (!navigator.geolocation) {
       setLocationError("Location is not supported in this browser. Please type your address.");
       return;
@@ -201,31 +245,36 @@ function PurchaseModal({
 
     setLocationLoading(true);
     setLocationError("");
-    navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
-        const { latitude, longitude } = coords;
-        setMapCenter({ lat: latitude, lon: longitude });
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-            { headers: { "Accept-Language": "en-IN" } },
-          );
-          if (!response.ok) throw new Error("Reverse geocoding failed");
-          const result = await response.json() as { display_name?: string };
-          setAddress(result.display_name ?? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
-        } catch {
-          setAddress(`Location pin: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
-          setLocationError("Address lookup was unavailable, so the location pin was saved instead.");
-        } finally {
-          setLocationLoading(false);
-        }
-      },
-      () => {
+
+    let position: GeolocationPosition;
+    try {
+      // First attempt: high accuracy GPS fix (can be slow indoors).
+      position = await getPosition({ enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+    } catch {
+      try {
+        // Fallback: network/cell-based location, faster but less precise.
+        position = await getPosition({ enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 });
+      } catch {
         setLocationLoading(false);
-        setLocationError("Location permission was not granted. You can type the address manually.");
-      },
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
+        setLocationError("We couldn't access your location. Please allow location access or type your address manually.");
+        return;
+      }
+    }
+
+    const { latitude, longitude, accuracy } = position.coords;
+    setMapCenter({ lat: latitude, lon: longitude });
+    const plusCode = encodePlusCode(latitude, longitude);
+
+    try {
+      const resolvedAddress = await reverseGeocode(latitude, longitude);
+      setAddress(`${resolvedAddress}\nPlus Code: ${plusCode} (pin-accurate location for the delivery partner)`);
+      setLocationError(`We've filled in the general area. Please add your house/flat number and street name for accurate delivery${accuracy && accuracy > 100 ? ` (GPS accuracy ±${Math.round(accuracy)}m)` : ""}.`);
+    } catch {
+      setAddress(`Plus Code: ${plusCode}\n${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+      setLocationError("Couldn't look up the address automatically. Please type your full address — the Plus Code above still pinpoints your exact spot for delivery.");
+    } finally {
+      setLocationLoading(false);
+    }
   };
 
   const submit = (event: FormEvent) => {
@@ -289,7 +338,7 @@ function PurchaseModal({
               </div>
               <div className="address-tabs" role="tablist" aria-label="Address input method">
                 <button type="button" className={addressMode === "text" ? "active" : ""} onClick={() => setAddressMode("text")}>Type address</button>
-                <button type="button" className={addressMode === "map" ? "active" : ""} onClick={() => setAddressMode("map")}><MapPinned size={14} /> Pick on map</button>
+                <button type="button" className={addressMode === "map" ? "active" : ""} onClick={() => { setAddressMode("map"); if (!address) pickLocation(); }}><MapPinned size={14} /> Pick on map</button>
               </div>
               {addressMode === "text" ? (
                 <label className="address-input"><textarea required value={address} onChange={(event) => setAddress(event.target.value)} placeholder="House / flat, street, area, city, state, PIN code" rows={3} /></label>
@@ -297,10 +346,10 @@ function PurchaseModal({
                 <div className="map-picker">
                   <iframe title="Delivery location map" src={`https://www.openstreetmap.org/export/embed.html?bbox=${mapCenter.lon - 0.02}%2C${mapCenter.lat - 0.02}%2C${mapCenter.lon + 0.02}%2C${mapCenter.lat + 0.02}&layer=mapnik&marker=${mapCenter.lat}%2C${mapCenter.lon}`} />
                   <div className="map-picker-footer">
-                    <button type="button" className="secondary-button" onClick={pickLocation} disabled={locationLoading}><Navigation size={15} /> {locationLoading ? "Finding location..." : "Use my current location"}</button>
+                    <button type="button" className="secondary-button" onClick={pickLocation} disabled={locationLoading}><Navigation size={15} /> {locationLoading ? "Locating you precisely..." : "Use my current location"}</button>
                     <small>We convert the selected pin into your delivery address.</small>
                   </div>
-                  <textarea required value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Your selected address will appear here" rows={2} />
+                  <textarea required value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Your selected address will appear here — please add house/flat number and street" rows={4} />
                   {locationError && <span className="form-error">{locationError}</span>}
                 </div>
               )}
