@@ -170,6 +170,13 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
 .payment-option strong { font-size: 11px; }
 .payment-option small { color: #92969b; font-size: 10px; }
 .payment-check { color: var(--purple); }
+.upi-offer-strip { display: flex; flex-wrap: wrap; gap: 6px; margin: -2px 0 2px; }
+.upi-offer-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 9.5px; font-weight: 800; color: #fff; padding: 5px 9px; border-radius: 99px; background: linear-gradient(135deg, #ff9a44, #e0634c); box-shadow: 0 4px 10px rgba(224,99,76,.28); white-space: nowrap; animation: offer-pop .3s ease; }
+.upi-offer-chip:nth-child(2) { background: linear-gradient(135deg, #38b887, #1d9b6c); box-shadow: 0 4px 10px rgba(29,155,108,.28); }
+.upi-offer-chip:nth-child(3) { background: linear-gradient(135deg, #8a6ff0, #6c56e7); box-shadow: 0 4px 10px rgba(108,86,231,.28); }
+@keyframes offer-pop { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: scale(1); } }
+.payment-option.upi-option { position: relative; }
+.payment-option.upi-option.selected { border-color: #1d9b6c; box-shadow: 0 0 0 2px rgba(29,155,108,.12); }
 .order-total { display: flex; justify-content: space-between; padding: 14px 0; border-top: 1px solid var(--line); font-size: 12px; margin-bottom: 12px; }
 .order-total strong { font-size: 18px; }
 .order-savings { display: flex; flex-wrap: wrap; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--line); font-size: 11px; color: #6b6f73; row-gap: 4px; }
