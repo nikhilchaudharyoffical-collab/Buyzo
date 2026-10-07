@@ -184,7 +184,10 @@ function PurchaseModal({
   const [confirmed, setConfirmed] = useState<Order | null>(null);
   const createOrder = useCreateOrder();
   const trackEvent = useTrackAnalyticsEvent();
-  const total = product.price * quantity;
+  const subtotal = product.price * quantity;
+  const UPI_DISCOUNT_RATE = 0.015; // 1.5% real discount applied when UPI is selected
+  const upiDiscount = payment === OrderInputPaymentMethod.UPI ? Math.round(subtotal * UPI_DISCOUNT_RATE) : 0;
+  const total = subtotal - upiDiscount;
   const deliveryDate = getDeliveryDate(payment === OrderInputPaymentMethod.UPI ? 5 : 10);
 
   const submit = (event: FormEvent) => {
@@ -263,6 +266,12 @@ function PurchaseModal({
                   <span className="payment-icon upi"><CreditCard size={17} /></span><span><strong>UPI payment</strong><small>Pay now and get it within 5 days</small></span>{payment === OrderInputPaymentMethod.UPI && <Check size={17} className="payment-check" />}
                 </button>
               </div>
+              {upiDiscount > 0 && (
+                <div className="order-savings">
+                  <span>Subtotal</span><strong>{money(subtotal)}</strong>
+                  <span className="savings-line">UPI discount</span><strong className="savings-line">−{money(upiDiscount)}</strong>
+                </div>
+              )}
               <div className="order-total"><span>Total payable</span><strong>{money(total)}</strong></div>
               <button className="primary-button wide" disabled={createOrder.isPending}>{createOrder.isPending ? "Securing your order..." : "Confirm order"} <ArrowRight size={17} /><BogoBadge className="buy-button-bogo" /></button>
               {createOrder.isError && <p className="form-error">We couldn't place the order. Please check your details and try again.</p>}
