@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setBaseUrl } from '@workspace/api-client-react';
 
 import App from './App';
@@ -11,18 +12,28 @@ if (apiUrl) {
   setBaseUrl(apiUrl);
 }
 
+// 1. Create the QueryClient instance
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
+
 createRoot(document.getElementById('root')!, {
   onCaughtError: (error, errorInfo) => {
-    const errMessage = error instanceof Error ? error.message : String(error);
-    alert("REACT CAUGHT CRASH: " + errMessage);
     console.error(error, errorInfo.componentStack);
   },
   onUncaughtError: (error) => {
-    const errMessage = error instanceof Error ? error.message : String(error);
-    alert("REACT UNCAUGHT CRASH: " + errMessage);
+    console.error(error);
   }
 }).render(
-  <ErrorBoundary>
-    <App />
-  </ErrorBoundary>,
+  // 2. Wrap the application inside QueryClientProvider
+  <QueryClientProvider client={queryClient}>
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  </QueryClientProvider>,
 );
