@@ -27,7 +27,7 @@ import { DAY_MS, istDay } from "../lib/time";
 
 const router: IRouter = Router();
 const analyticsId = "summary";
-const ADMIN_SESSION_COOKIE = "dropcart_admin_session";
+const ADMIN_SESSION_COOKIE = "buydo_admin_session";
 const ADMIN_SESSION_TTL_SECONDS = 8 * 60 * 60;
 
 const getSessionSecret = () => process.env.SESSION_SECRET ?? "";
@@ -173,9 +173,8 @@ const toOrder = (row: OrderRow): Order => ({
 });
 
 /**
- * Populate an empty database once without replacing any existing catalog,
- * orders, or analytics. This keeps the existing demo experience while making
- * all subsequent changes durable.
+ * Seed only a minimum catalog item and zeroed summary on an empty database.
+ * Orders and visits are never fabricated during initialization.
  */
 export const initializeStore = async (): Promise<void> => {
   const [existingAnalytics] = await db
@@ -276,7 +275,7 @@ router.delete("/products/:productId", requireAdminAuth, async (req, res) => {
   res.status(204).send();
 });
 
-router.get("/orders", requireAdminAuth, async (_req, res) => {
+router.get("/orders", rateLimit("admin-orders", 120, 60_000), requireAdminAuth, async (_req, res) => {
   const rows = await db
     .select()
     .from(ordersTable)

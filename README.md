@@ -1,4 +1,4 @@
-# Buyzo (Dropcart Store) — Deployment Guide
+# BuyDo — Deployment Guide
 
 Is repo mein 3 hisse hain:
 - `dropcart-store/` — React + Vite frontend (yeh Vercel pe jaayega)
@@ -18,7 +18,7 @@ cd lib/db
 DATABASE_URL="tumhari-connection-string" pnpm push
 ```
 
-Isse `products`, `orders`, aur `analytics` tables ban jayengi.
+Isse `products`, `orders`, `analytics`, aur `analytics_daily` tables ban jayengi.
 
 ## Step 2 — Backend deploy karo (Render.com, free tier)
 
@@ -33,6 +33,7 @@ Isse `products`, `orders`, aur `analytics` tables ban jayengi.
    - `ADMIN_PASSWORD` — apna admin login password
    - `SESSION_SECRET` — koi bhi lamba random string (e.g. `openssl rand -hex 32` se generate kar sakte ho)
    - `NODE_ENV` — `production`
+   - `FRONTEND_ORIGIN` — apna exact Vercel origin, jaise `https://your-store.vercel.app` (multiple origins comma-separated ho sakte hain)
 5. Deploy hone do. Deploy hone ke baad tumhe ek URL milega jaisे `https://buyzo-api.onrender.com`
 
 ## Step 3 — Frontend deploy karo (Vercel)

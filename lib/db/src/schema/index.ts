@@ -56,3 +56,9 @@ export const analyticsTable = pgTable("analytics", {
   historicalRevenue: real("historical_revenue").notNull(),
   daily: jsonb("daily").$type<AnalyticsDay[]>().notNull(),
 });
+
+export const analyticsDailyTable = pgTable("analytics_daily", {
+  day: text("day").primaryKey(),
+  visits: integer("visits").notNull().default(0),
+  clicks: integer("clicks").notNull().default(0),
+});

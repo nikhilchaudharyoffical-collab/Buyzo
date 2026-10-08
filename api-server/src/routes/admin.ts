@@ -256,12 +256,6 @@ router.post("/data/purge", async (req, res) => {
   res.status(400).json({ error: "Unknown target" });
 });
 
-// Old sample orders created by the earlier version of the app
-router.post("/data/purge-demo", async (_req, res) => {
-  const deleted = await db.delete(ordersTable).where(inArray(ordersTable.id, ["DC-1047", "DC-1048"])).returning({ id: ordersTable.id });
-  res.json({ deleted: deleted.length });
-});
-
 router.get("/export/orders.csv", async (_req, res) => {
   const rows = await db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt));
   const esc = (v: unknown) => `"${String(v instanceof Date ? v.toISOString() : v).replaceAll('"', '""')}"`;

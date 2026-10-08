@@ -1,0 +1,1 @@
+{"version":3,"file":"analyticsEventInput.d.ts","sourceRoot":"","sources":["../../../src/generated/types/analyticsEventInput.ts"],"names":[],"mappings":"AAAA;;;;;;GAMG;AACH,OAAO,KAAK,EAAE,uBAAuB,EAAE,MAAM,2BAA2B,CAAC;AAEzE,MAAM,WAAW,mBAAmB;IAClC,IAAI,EAAE,uBAAuB,CAAC;IAC9B,gBAAgB;IAChB,SAAS,CAAC,EAAE,MAAM,GAAG,IAAI,CAAC;CAC3B"}

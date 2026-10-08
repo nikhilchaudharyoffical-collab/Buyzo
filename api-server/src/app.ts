@@ -1,15 +1,8 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
-import { clerkMiddleware } from "@clerk/express";
-import { publishableKeyFromHost } from "@clerk/shared/keys";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import {
-  CLERK_PROXY_PATH,
-  clerkProxyMiddleware,
-  getClerkProxyHost,
-} from "./middlewares/clerkProxyMiddleware";
 
 const app: Express = express();
 
@@ -32,28 +25,28 @@ app.use(
     },
   }),
 );
-app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 const allowedOrigins = (process.env.FRONTEND_ORIGIN ?? "")
   .split(",")
-  .map((o) => o.trim().replace(/\/$/, ""))
+  .map((origin) => origin.trim().replace(/\/$/, ""))
   .filter(Boolean);
+const developmentOrigins =
+  process.env.NODE_ENV === "development"
+    ? ["http://localhost:5173", "http://127.0.0.1:5173"]
+    : [];
 app.use(
   cors({
     credentials: true,
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-      // Local development convenience only
-      return callback(null, process.env.NODE_ENV !== "production");
+      if (!origin) {
+        return callback(null, true);
+      }
+      const allowed = new Set([...allowedOrigins, ...developmentOrigins]);
+      if (allowed.has(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("Not allowed by CORS"), false);
     },
   }),
-);
-app.use(
-  clerkMiddleware((req) => ({
-    publishableKey: publishableKeyFromHost(
-      getClerkProxyHost(req) ?? "",
-      process.env.CLERK_PUBLISHABLE_KEY,
-    ),
-  })),
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
