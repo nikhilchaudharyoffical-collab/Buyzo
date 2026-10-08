@@ -4,6 +4,7 @@ import { Router, type IRouter } from "express";
 import { desc, eq, sql } from "drizzle-orm";
 import {
   analyticsTable,
+  analyticsDailyTable,
   db,
   ordersTable,
   productsTable,
@@ -21,6 +22,8 @@ import {
   type Order,
   type AnalyticsSummary,
 } from "@workspace/api-zod";
+import { rateLimit } from "../lib/rateLimit";
+import { DAY_MS, istDay } from "../lib/time";
 
 const router: IRouter = Router();
 const analyticsId = "summary";
@@ -62,7 +65,7 @@ const hasValidAdminSession = (req: Parameters<Parameters<IRouter["get"]>[1]>[0])
   return safeEqual(signature, expectedSignature);
 };
 
-const requireAdminAuth = (
+export const requireAdminAuth = (
   req: Parameters<Parameters<IRouter["get"]>[1]>[0],
   res: Parameters<Parameters<IRouter["get"]>[1]>[1],
   next: Parameters<Parameters<IRouter["get"]>[1]>[2],
@@ -74,7 +77,7 @@ const requireAdminAuth = (
   next();
 };
 
-router.post("/admin/login", async (req, res) => {
+router.post("/admin/login", rateLimit("login", 8, 15 * 60_000), async (req, res) => {
   const username = typeof req.body?.username === "string" ? req.body.username.trim() : "";
   const password = typeof req.body?.password === "string" ? req.body.password : "";
   const configuredUsername = process.env.ADMIN_USERNAME ?? "";
@@ -137,59 +140,6 @@ const initialProduct: Product = {
   ],
 };
 
-const initialOrders: Order[] = [
-  {
-    id: "DC-1048",
-    productId: "pulsewatch-pro",
-    productName: "PulseWatch Pro",
-    quantity: 1,
-    total: 1299,
-    paymentMethod: "COD",
-    status: "Shipped",
-    deliveryDate: new Date(Date.now() + 3 * 86400000),
-    createdAt: new Date(Date.now() - 2 * 86400000),
-    customerName: "Aarav Mehta",
-    customerContact: "aarav@example.com",
-    address: "14 Green Park, New Delhi, Delhi 110016",
-  },
-  {
-    id: "DC-1047",
-    productId: "pulsewatch-pro",
-    productName: "PulseWatch Pro",
-    quantity: 2,
-    total: 2598,
-    paymentMethod: "UPI",
-    status: "Confirmed",
-    deliveryDate: new Date(Date.now() + 2 * 86400000),
-    createdAt: new Date(Date.now() - 86400000),
-    customerName: "Sana Kapoor",
-    customerContact: "sana@example.com",
-    address: "22 Lake View Road, Bengaluru, Karnataka 560001",
-  },
-];
-
-const initialAnalytics: AnalyticsSummary & {
-  historicalOrders: number;
-  historicalRevenue: number;
-} = {
-  visits: 12480,
-  productClicks: 4892,
-  orders: 0,
-  revenue: 0,
-  conversionRate: 0,
-  historicalOrders: 384,
-  historicalRevenue: 483210,
-  daily: [
-    { label: "Mon", visits: 1320, clicks: 440, orders: 32 },
-    { label: "Tue", visits: 1680, clicks: 590, orders: 46 },
-    { label: "Wed", visits: 1540, clicks: 520, orders: 40 },
-    { label: "Thu", visits: 1910, clicks: 760, orders: 58 },
-    { label: "Fri", visits: 2110, clicks: 840, orders: 71 },
-    { label: "Sat", visits: 2040, clicks: 780, orders: 64 },
-    { label: "Sun", visits: 1880, clicks: 962, orders: 73 },
-  ],
-};
-
 type ProductRow = typeof productsTable.$inferSelect;
 type OrderRow = typeof ordersTable.$inferSelect;
 
@@ -244,16 +194,15 @@ export const initializeStore = async (): Promise<void> => {
         createdAt: new Date(),
       })
       .onConflictDoNothing();
-    await tx.insert(ordersTable).values(initialOrders).onConflictDoNothing();
     await tx
       .insert(analyticsTable)
       .values({
         id: analyticsId,
-        visits: initialAnalytics.visits,
-        productClicks: initialAnalytics.productClicks,
-        historicalOrders: initialAnalytics.historicalOrders,
-        historicalRevenue: initialAnalytics.historicalRevenue,
-        daily: initialAnalytics.daily,
+        visits: 0,
+        productClicks: 0,
+        historicalOrders: 0,
+        historicalRevenue: 0,
+        daily: [],
       })
       .onConflictDoNothing();
   });
@@ -335,7 +284,14 @@ router.get("/orders", requireAdminAuth, async (_req, res) => {
   res.json(rows.map(toOrder));
 });
 
-router.post("/orders", async (req, res) => {
+class OrderError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
+const UPI_DISCOUNT_RATE = 0.015;
+
+router.post("/orders", rateLimit("orders", 10, 10 * 60_000), async (req, res) => {
   const parsed = CreateOrderBody.safeParse(req.body);
   if (!parsed.success) {
     res
@@ -344,26 +300,54 @@ router.post("/orders", async (req, res) => {
     return;
   }
 
-  const row = await db.transaction(async (tx) => {
-    const [createdOrder] = await tx
-      .insert(ordersTable)
-      .values({
-        id: `DC-${Date.now()}-${randomUUID().slice(0, 8)}`,
-        ...parsed.data,
-        status: "Processing",
-        createdAt: new Date(),
-      })
-      .returning();
+  const input = parsed.data;
+  try {
+    const row = await db.transaction(async (tx) => {
+      if (input.quantity > 10) throw new OrderError(400, "You can order up to 10 units at a time");
+      // Lock the product row so two buyers can't take the last unit together.
+      const [product] = await tx
+        .select()
+        .from(productsTable)
+        .where(eq(productsTable.id, input.productId))
+        .for("update");
+      if (!product) throw new OrderError(404, "This product is no longer available");
+      if (product.stock < input.quantity) {
+        throw new OrderError(409, product.stock > 0 ? `Only ${product.stock} unit(s) left in stock` : "This product is out of stock");
+      }
 
-    await tx
-      .update(analyticsTable)
-      .set({ visits: sql`${analyticsTable.visits} + 1` })
-      .where(eq(analyticsTable.id, analyticsId));
+      // Price, discount and delivery date are decided by the server, not the browser.
+      const isUpi = (input.paymentMethod as string) === "UPI";
+      const subtotal = product.price * input.quantity;
+      const total = subtotal - (isUpi ? Math.round(subtotal * UPI_DISCOUNT_RATE) : 0);
+      const now = new Date();
 
-    return createdOrder;
-  });
+      await tx
+        .update(productsTable)
+        .set({ stock: sql`${productsTable.stock} - ${input.quantity}` })
+        .where(eq(productsTable.id, product.id));
 
-  res.status(201).json(toOrder(row));
+      const [createdOrder] = await tx
+        .insert(ordersTable)
+        .values({
+          id: `BD-${Date.now()}-${randomUUID().slice(0, 8)}`,
+          ...input,
+          productName: product.name,
+          total,
+          deliveryDate: new Date(now.getTime() + (isUpi ? 5 : 10) * DAY_MS),
+          status: "Processing",
+          createdAt: now,
+        })
+        .returning();
+      return createdOrder;
+    });
+    res.status(201).json(toOrder(row));
+  } catch (error) {
+    if (error instanceof OrderError) {
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
 });
 
 router.patch("/orders/:orderId", requireAdminAuth, async (req, res) => {
@@ -374,17 +358,34 @@ router.patch("/orders/:orderId", requireAdminAuth, async (req, res) => {
     return;
   }
 
-  const [row] = await db
-    .update(ordersTable)
-    .set({ status: body.data.status })
-    .where(eq(ordersTable.id, params.data.orderId))
-    .returning();
-  if (!row) {
-    res.status(404).json({ error: "Order not found" });
-    return;
+  try {
+    const row = await db.transaction(async (tx) => {
+      const [current] = await tx
+        .select()
+        .from(ordersTable)
+        .where(eq(ordersTable.id, params.data.orderId))
+        .for("update");
+      if (!current) throw new OrderError(404, "Order not found");
+      const next = body.data.status as string;
+      // Keep stock honest: cancelling returns units, re-opening takes them again.
+      if (current.status !== "Cancelled" && next === "Cancelled") {
+        await tx.update(productsTable).set({ stock: sql`${productsTable.stock} + ${current.quantity}` }).where(eq(productsTable.id, current.productId));
+      } else if (current.status === "Cancelled" && next !== "Cancelled") {
+        const [p] = await tx.select().from(productsTable).where(eq(productsTable.id, current.productId)).for("update");
+        if (p && p.stock < current.quantity) throw new OrderError(409, `Only ${p.stock} unit(s) in stock, cannot re-open this order`);
+        if (p) await tx.update(productsTable).set({ stock: sql`${productsTable.stock} - ${current.quantity}` }).where(eq(productsTable.id, p.id));
+      }
+      const [updated] = await tx.update(ordersTable).set({ status: body.data.status }).where(eq(ordersTable.id, current.id)).returning();
+      return updated;
+    });
+    res.json(toOrder(row));
+  } catch (error) {
+    if (error instanceof OrderError) {
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
+    throw error;
   }
-
-  res.json(toOrder(row));
 });
 
 router.get("/analytics/summary", requireAdminAuth, async (_req, res) => {
@@ -419,7 +420,7 @@ router.get("/analytics/summary", requireAdminAuth, async (_req, res) => {
   res.json(summary);
 });
 
-router.post("/analytics/events", async (req, res) => {
+router.post("/analytics/events", rateLimit("events", 120, 60_000), async (req, res) => {
   const parsed = TrackAnalyticsEventBody.safeParse(req.body);
   if (!parsed.success) {
     res
@@ -438,6 +439,18 @@ router.post("/analytics/events", async (req, res) => {
       .update(analyticsTable)
       .set({ productClicks: sql`${analyticsTable.productClicks} + 1` })
       .where(eq(analyticsTable.id, analyticsId));
+  }
+  if (parsed.data.type === "visit" || parsed.data.type === "click") {
+    const isVisit = parsed.data.type === "visit";
+    await db
+      .insert(analyticsDailyTable)
+      .values({ day: istDay(new Date()), visits: isVisit ? 1 : 0, clicks: isVisit ? 0 : 1 })
+      .onConflictDoUpdate({
+        target: analyticsDailyTable.day,
+        set: isVisit
+          ? { visits: sql`${analyticsDailyTable.visits} + 1` }
+          : { clicks: sql`${analyticsDailyTable.clicks} + 1` },
+      });
   }
   res.status(204).send();
 });
