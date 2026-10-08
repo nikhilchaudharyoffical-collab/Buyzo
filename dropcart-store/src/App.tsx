@@ -60,6 +60,7 @@ import {
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
+import { AdminDashboard as BuyDoAdmin } from "@/admin/AdminApp";
 import { ErrorBoundary } from "@/components/error-boundary";
 
 const queryClient = new QueryClient();
@@ -301,7 +302,7 @@ function PurchaseModal({
               )}
               <div className="order-total"><span>Total payable</span><strong>{money(total)}</strong></div>
               <button className="primary-button wide" disabled={createOrder.isPending}>{createOrder.isPending ? "Securing your order..." : "Confirm order"} <ArrowRight size={17} /><BogoBadge className="buy-button-bogo" /></button>
-              {createOrder.isError && <p className="form-error">We couldn't place the order. Please check your details and try again.</p>}
+              {createOrder.isError && <p className="form-error">{((createOrder.error as { data?: { error?: string } } | null)?.data?.error) ?? "We couldn't place the order. Please check your details and try again."}</p>}
             </form>
           </>
         )}
@@ -528,7 +529,7 @@ function AdminAuthScreen({ onLogin }: { onLogin: () => void }) {
 }
 
 function Router() {
-  return <ErrorBoundary><Switch><Route path="/" component={ProductPage} /><Route path="/admin" component={AdminDashboard} /><Route component={NotFound} /></Switch></ErrorBoundary>;
+  return <ErrorBoundary><Switch><Route path="/" component={ProductPage} /><Route path="/admin" component={BuyDoAdmin} /><Route component={NotFound} /></Switch></ErrorBoundary>;
 }
 
 export default function App() {
