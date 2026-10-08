@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm --filter ./dropcart-store run build",
+  "buildCommand": "cd dropcart-store && pnpm run build",
   "outputDirectory": "dropcart-store/dist",
   "installCommand": "pnpm install",
   "rewrites": [
