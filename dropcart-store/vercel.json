@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-        "destination": "https://buydo.onrender.com/api/:path*"
+      "destination": "https://buydo.onrender.com/api/:path*"
     },
     {
       "source": "/((?!api/).*)",
