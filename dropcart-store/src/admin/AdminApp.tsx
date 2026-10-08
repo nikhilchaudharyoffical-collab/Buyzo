@@ -284,22 +284,23 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
         <a className="bd-admin-brand" href="/">BuyDo<span>.</span></a>
         <span className="bd-rail-label">STORE</span>
         <nav>{tabs.map(({ id, label, icon: Icon }) => <button key={id} className={tab === id ? "active" : ""} onClick={() => { setTab(id); setSearch(""); }}><Icon size={17} />{label}{id === "orders" && (analytics.data?.pendingOrders ?? 0) > 0 && <b>{analytics.data?.pendingOrders}</b>}</button>)}</nav>
-        <div className="bd-rail-foot"><span><i /> Database connected</span><button onClick={logout}><LogOut size={16} /> Sign out</button><a href="/">← View storefront</a></div>
+        <div className="bd-rail-foot"><span className={database.isError ? "offline" : ""}><i />{database.isLoading ? "Checking database" : database.isError ? "Database unavailable" : "Database connected"}</span><a href="/">← View storefront</a></div>
       </aside>
       <main className="bd-main">
         <header className="bd-topbar">
           <div><span className="bd-overline">BUYDO / ADMIN</span><h1>{tabs.find((item) => item.id === tab)?.label}</h1></div>
           <div className="bd-top-actions">
             {tab === "overview" && <>
-              <label className="bd-period"><CalendarDays size={15} /><select value={rangePreset} onChange={(event) => selectRange(event.target.value)}><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="custom">Custom range</option></select><ChevronDown size={14} /></label>
+              <label className="bd-period"><CalendarDays size={15} /><select value={rangePreset} onChange={(event) => selectRange(event.target.value)}><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last 365 days</option><option value="custom">Custom range</option></select><ChevronDown size={14} /></label>
               <label className="bd-date-filter"><span>From</span><input type="date" value={fromDate} max={toDate} onChange={(event) => { const value = event.target.value; setRangePreset("custom"); setFromDate(value); if (value > toDate) setToDate(value); }} /><span>To</span><input type="date" value={toDate} min={fromDate} max={today} onChange={(event) => { const value = event.target.value; setRangePreset("custom"); setToDate(value); if (value < fromDate) setFromDate(value); }} /></label>
             </>}
             <button className="bd-icon-button" onClick={refresh} aria-label="Refresh data" title="Refresh data"><RefreshCw size={16} /></button>
             <span className="bd-live"><i /> Live data</span>
+            <button className="bd-signout" onClick={() => void logout()}><LogOut size={15} /> Sign out</button>
           </div>
         </header>
         {notice && <div className="bd-notice"><Check size={15} />{notice}<button onClick={() => setNotice("")} aria-label="Dismiss"><X size={15} /></button></div>}
-        {tab === "overview" && <Overview data={analytics.data} loading={analytics.isLoading} error={analytics.error} orders={orders.data ?? []} onNavigate={setTab} />}
+        {tab === "overview" && <Overview data={analytics.data} loading={analytics.isLoading} error={analytics.error} orders={orders.data ?? []} onNavigate={setTab} onRetry={() => { void analytics.refetch(); void orders.refetch(); }} />}
         {tab === "orders" && <OrdersView orders={matchingOrders} loading={orders.isLoading} error={orders.error} search={search} setSearch={setSearch} selected={selected} setSelected={setSelected} updateStatus={updateStatus.mutate} deleteOrder={deleteOrder.mutate} bulkDelete={bulkDelete.mutate} pending={updateStatus.isPending || deleteOrder.isPending || bulkDelete.isPending} />}
         {tab === "customers" && <CustomersView customers={matchingCustomers} loading={customers.isLoading} error={customers.error} search={search} setSearch={setSearch} />}
         {tab === "products" && <ProductsView products={products.data ?? []} loading={products.isLoading} error={products.error} saveProduct={saveProduct.mutateAsync} deleteProduct={deleteProduct.mutate} pending={saveProduct.isPending || deleteProduct.isPending} />}
@@ -320,14 +321,15 @@ function Panel({ title, eyebrow, children, className = "" }: { title: string; ey
   return <section className={`bd-panel ${className}`}><header><div>{eyebrow && <span className="bd-overline">{eyebrow}</span>}<h2>{title}</h2></div></header>{children}</section>;
 }
 
-function Overview({ data, loading, error, orders, onNavigate }: { data?: Analytics; loading: boolean; error: Error | null; orders: Order[]; onNavigate: (tab: AdminTab) => void }) {
-  if (loading) return <div className="bd-state">Loading store analytics...</div>;
-  if (error || !data) return <div className="bd-state error">Analytics could not be loaded. {error?.message}</div>;
+function Overview({ data, loading, error, orders, onNavigate, onRetry }: { data?: Analytics; loading: boolean; error: Error | null; orders: Order[]; onNavigate: (tab: AdminTab) => void; onRetry: () => void }) {
+  if (loading) return <div className="bd-state" role="status"><RefreshCw size={17} /> Loading live store analytics...</div>;
+  if (error || !data) return <div className="bd-error-state"><div><span className="bd-overline">LIVE DATA UNAVAILABLE</span><strong>Overview could not load analytics.</strong><small>{error?.message ?? "The analytics endpoint returned no data."}</small></div><button className="bd-button secondary" onClick={onRetry}><RefreshCw size={14} /> Retry</button></div>;
   const k = data.kpis;
   const codOrders = data.byPayment.find((payment) => payment.name === "COD")?.count ?? 0;
   const upiOrders = data.byPayment.find((payment) => payment.name === "UPI")?.count ?? 0;
   return <div className="bd-content">
     <div className="bd-welcome"><div><span className="bd-overline">PERFORMANCE / {data.days} DAYS</span><h2>Your store, as it is.</h2><p>Every figure below is calculated from recorded BuyDo orders and visits.</p></div><div className="bd-projection"><span>7-day order value run-rate</span><strong>{currency(data.projection.next7Revenue)}</strong><small>Selected period daily average × 7</small></div></div>
+    {k.orders === 0 && <div className="bd-range-note"><div><strong>No non-cancelled orders in this date range</strong><span>{orders.length ? `${orders.length} order record(s) exist in the database. Try the 365-day preset or choose an earlier custom range.` : "Orders will appear here after the first customer checkout."}</span></div><button className="bd-inline-link" onClick={() => onNavigate("orders")}>Open order records <ArrowRight size={14} /></button></div>}
     <section className="bd-today">
       <div className="bd-section-title"><span className="bd-overline">TODAY / INDIA STANDARD TIME</span><span>{dateOnly(new Date())}</span></div>
       <div className="bd-today-grid">
