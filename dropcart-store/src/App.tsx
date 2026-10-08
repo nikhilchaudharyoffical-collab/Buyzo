@@ -160,6 +160,7 @@ function ProductGallery({ product }: { product: Product }) {
       <div className="gallery-main" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         {product.images[active] ? <img src={product.images[active]} alt={`${product.name}, image ${active + 1}`} /> : <div className="gallery-placeholder"><Package size={42} /><span>Product image coming soon</span></div>}
         {discountPercent > 0 && <span className="discount-sticker">{discountPercent}% OFF</span>}
+        <BogoBadge className="gallery-bogo" />
         {product.images.length > 1 && (
           <>
             <button type="button" className="gallery-nav prev" aria-label="Previous image" onClick={() => goTo(active - 1)}><ChevronLeft size={18} /></button>
@@ -352,7 +353,7 @@ function ProductPage() {
             <div className="price-block"><span className="price">{money(product.price)}</span><span className="compare-price">{money(product.compareAtPrice)}</span><span className="save-badge">Save {Math.round((1 - product.price / product.compareAtPrice) * 100)}%</span></div>
             <p className="tax-note">Price shown in INR <span>•</span> Guest checkout available</p>
             <div className="product-availability"><span className={`availability-dot ${product.stock === 0 ? "out" : ""}`} /><span>{product.stock > 0 ? `${product.stock} in stock` : "Currently out of stock"}</span><span className="availability-divider" /><span>{product.category}</span></div>
-            <button className="primary-button buy-button" disabled={product.stock < 1} onClick={() => { trackEvent.mutate({ data: { type: "click", productId: product.id } }); setCheckoutOpen(true); }}>{product.stock > 0 ? "Buy now" : "Out of stock"} {product.stock > 0 && <ArrowRight size={18} />}</button>
+            <button className="primary-button buy-button" disabled={product.stock < 1} onClick={() => { trackEvent.mutate({ data: { type: "click", productId: product.id } }); setCheckoutOpen(true); }}>{product.stock > 0 ? "Buy now" : "Out of stock"} {product.stock > 0 && <><BogoBadge className="buy-button-bogo" /><ArrowRight size={18} /></>}</button>
             <div className="divider" />
             <section className="product-details"><div className="product-details-heading"><span className="eyebrow">THE DETAILS</span><h2>Made to fit your day.</h2></div><div className="feature-list">
               {product.highlights.map((highlight, index) => <div key={`${highlight}-${index}`} className="feature-item"><span className="feature-number">{String(index + 1).padStart(2, "0")}</span><span>{highlight}</span></div>)}
@@ -362,7 +363,7 @@ function ProductPage() {
         </div>
         <section className="review-strip"><div><span className="eyebrow">CUSTOMER RATING</span><div className="review-score"><strong>{product.rating}</strong><div><Rating rating={product.rating} /><span>{product.reviewCount.toLocaleString("en-IN")} reviews listed for this product</span></div></div></div><p>Rating and review count are displayed from the product catalog.</p></section>
       </main>
-      <div className="mobile-buy-bar"><div><span>{product.stock > 0 ? "Price" : "Availability"}</span><strong>{product.stock > 0 ? money(product.price) : "Out of stock"}</strong></div><button className="primary-button" disabled={product.stock < 1} onClick={() => { trackEvent.mutate({ data: { type: "click", productId: product.id } }); setCheckoutOpen(true); }}>{product.stock > 0 ? "Buy now" : "Unavailable"} {product.stock > 0 && <ArrowRight size={17} />}</button></div>
+      <div className="mobile-buy-bar"><div><span>{product.stock > 0 ? "Price" : "Availability"}</span><strong>{product.stock > 0 ? money(product.price) : "Out of stock"}</strong></div><button className="primary-button" disabled={product.stock < 1} onClick={() => { trackEvent.mutate({ data: { type: "click", productId: product.id } }); setCheckoutOpen(true); }}>{product.stock > 0 ? "Buy now" : "Unavailable"} {product.stock > 0 && <><BogoBadge className="buy-button-bogo" /><ArrowRight size={17} /></>}</button></div>
       {isCheckoutOpen && <PurchaseModal product={product} onClose={() => setCheckoutOpen(false)} />}
     </div>
   );
