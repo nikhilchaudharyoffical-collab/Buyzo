@@ -546,5 +546,15 @@ function Router() {
 }
 
 export default function App() {
+  useEffect(() => {
+    const ping = () => {
+      void fetch("/api/healthz", { cache: "no-store" }).catch(() => undefined);
+    };
+
+    ping();
+    const interval = window.setInterval(ping, 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   return <QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={basePath}><Router /></WouterRouter><Toaster /></TooltipProvider></QueryClientProvider>;
 }
