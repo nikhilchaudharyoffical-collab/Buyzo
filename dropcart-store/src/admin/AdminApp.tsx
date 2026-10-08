@@ -15,6 +15,7 @@ import {
   Database,
   Download,
   Eye,
+  ImagePlus,
   LogOut,
   Package,
   Plus,
@@ -33,6 +34,8 @@ import {
   CartesianGrid,
   Cell,
   Legend,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -61,6 +64,7 @@ type Kpis = {
 type Analytics = {
   days: number;
   generatedAt: string;
+  today: { revenue: number; orders: number; visits: number; clicks: number; buyers: number; cod: number; upi: number };
   kpis: Kpis;
   previous: Kpis;
   series: { date: string; label: string; visits: number; clicks: number; orders: number; revenue: number }[];
@@ -103,11 +107,15 @@ type DatabaseOverview = {
 
 type AdminTab = "overview" | "orders" | "customers" | "products" | "data";
 type ProductForm = ProductInput;
+type ProductNumericField = "price" | "compareAtPrice" | "stock" | "rating" | "reviewCount";
+type ProductDraft = Omit<ProductForm, ProductNumericField> & Record<ProductNumericField, string>;
 
 const palette = ["#236b5d", "#edae49", "#4664a8", "#d97054", "#82978b"];
 const currency = (amount: number) => `₹${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 const dateTime = (value: string | Date) => new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 const dateOnly = (value: string | Date) => new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(new Date(value));
+const indiaDay = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+const shiftDate = (day: string, offset: number) => new Date(Date.parse(`${day}T00:00:00.000Z`) + offset * 86_400_000).toISOString().slice(0, 10);
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -131,11 +139,27 @@ function change(current: number, previous: number) {
 
 function AdminApp() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const queryClient = useQueryClient();
   useEffect(() => {
-    request<{ authenticated: boolean }>("/api/admin/session")
-      .then(({ authenticated: active }) => setAuthenticated(active))
-      .catch(() => setAuthenticated(false));
-  }, []);
+    let mounted = true;
+    const checkSession = () => {
+      request<{ authenticated: boolean }>("/api/admin/session")
+        .then(({ authenticated: active }) => {
+          if (!mounted) return;
+          if (!active) queryClient.clear();
+          setAuthenticated(active);
+        })
+        .catch(() => {
+          if (mounted) setAuthenticated(false);
+        });
+    };
+    checkSession();
+    const interval = window.setInterval(checkSession, 30_000);
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+    };
+  }, [queryClient]);
 
   if (authenticated === null) return <div className="bd-admin-loading">Checking admin session...</div>;
   if (!authenticated) return <SignIn onSignedIn={() => setAuthenticated(true)} />;
@@ -183,12 +207,15 @@ function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
 
 function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
   const [tab, setTab] = useState<AdminTab>("overview");
-  const [days, setDays] = useState(30);
+  const [today] = useState(indiaDay);
+  const [rangePreset, setRangePreset] = useState("30");
+  const [fromDate, setFromDate] = useState(() => shiftDate(indiaDay(), -29));
+  const [toDate, setToDate] = useState(today);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [notice, setNotice] = useState("");
   const queryClient = useQueryClient();
-  const analytics = useQuery({ queryKey: ["admin", "analytics", days], queryFn: () => request<Analytics>(`/api/admin/analytics?days=${days}`) });
+  const analytics = useQuery({ queryKey: ["admin", "analytics", fromDate, toDate], queryFn: () => request<Analytics>(`/api/admin/analytics?from=${fromDate}&to=${toDate}`), enabled: fromDate <= toDate && toDate <= today });
   const orders = useQuery({ queryKey: ["admin", "orders"], queryFn: () => request<Order[]>("/api/orders") });
   const customers = useQuery({ queryKey: ["admin", "customers"], queryFn: () => request<Customer[]>("/api/admin/customers") });
   const products = useQuery({ queryKey: ["admin", "products"], queryFn: () => request<Product[]>("/api/products") });
@@ -234,6 +261,15 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
     onSignOut();
   };
 
+  const selectRange = (value: string) => {
+    setRangePreset(value);
+    if (value !== "custom") {
+      const rangeDays = Number(value);
+      setToDate(today);
+      setFromDate(shiftDate(today, -(rangeDays - 1)));
+    }
+  };
+
   const tabs: { id: AdminTab; label: string; icon: typeof Activity }[] = [
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "orders", label: "Orders", icon: ShoppingBag },
@@ -254,7 +290,10 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
         <header className="bd-topbar">
           <div><span className="bd-overline">BUYDO / ADMIN</span><h1>{tabs.find((item) => item.id === tab)?.label}</h1></div>
           <div className="bd-top-actions">
-            {tab === "overview" && <label className="bd-period"><CalendarDays size={15} /><select value={days} onChange={(event) => setDays(Number(event.target.value))}><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option></select><ChevronDown size={14} /></label>}
+            {tab === "overview" && <>
+              <label className="bd-period"><CalendarDays size={15} /><select value={rangePreset} onChange={(event) => selectRange(event.target.value)}><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="custom">Custom range</option></select><ChevronDown size={14} /></label>
+              <label className="bd-date-filter"><span>From</span><input type="date" value={fromDate} max={toDate} onChange={(event) => { const value = event.target.value; setRangePreset("custom"); setFromDate(value); if (value > toDate) setToDate(value); }} /><span>To</span><input type="date" value={toDate} min={fromDate} max={today} onChange={(event) => { const value = event.target.value; setRangePreset("custom"); setToDate(value); if (value < fromDate) setFromDate(value); }} /></label>
+            </>}
             <button className="bd-icon-button" onClick={refresh} aria-label="Refresh data" title="Refresh data"><RefreshCw size={16} /></button>
             <span className="bd-live"><i /> Live data</span>
           </div>
@@ -285,21 +324,48 @@ function Overview({ data, loading, error, orders, onNavigate }: { data?: Analyti
   if (loading) return <div className="bd-state">Loading store analytics...</div>;
   if (error || !data) return <div className="bd-state error">Analytics could not be loaded. {error?.message}</div>;
   const k = data.kpis;
+  const codOrders = data.byPayment.find((payment) => payment.name === "COD")?.count ?? 0;
+  const upiOrders = data.byPayment.find((payment) => payment.name === "UPI")?.count ?? 0;
   return <div className="bd-content">
-    <div className="bd-welcome"><div><span className="bd-overline">PERFORMANCE / {data.days} DAYS</span><h2>Your store, as it is.</h2><p>Every figure below is calculated from recorded BuyDo orders and visits.</p></div><div className="bd-projection"><span>Next 7-day revenue estimate</span><strong>{currency(data.projection.next7Revenue)}</strong><small>Based on the selected period's daily average</small></div></div>
+    <div className="bd-welcome"><div><span className="bd-overline">PERFORMANCE / {data.days} DAYS</span><h2>Your store, as it is.</h2><p>Every figure below is calculated from recorded BuyDo orders and visits.</p></div><div className="bd-projection"><span>7-day order value run-rate</span><strong>{currency(data.projection.next7Revenue)}</strong><small>Selected period daily average × 7</small></div></div>
+    <section className="bd-today">
+      <div className="bd-section-title"><span className="bd-overline">TODAY / INDIA STANDARD TIME</span><span>{dateOnly(new Date())}</span></div>
+      <div className="bd-today-grid">
+        <Metric label="Today's order value" value={data.today.revenue} icon={CircleDollarSign} format="money" />
+        <Metric label="Orders" value={data.today.orders} icon={ShoppingBag} />
+        <Metric label="Visits" value={data.today.visits} icon={Eye} />
+        <Metric label="Product clicks" value={data.today.clicks} icon={Activity} />
+        <Metric label="Buyers" value={data.today.buyers} icon={Users} />
+        <Metric label="COD orders" value={data.today.cod} icon={Package} />
+        <Metric label="UPI orders" value={data.today.upi} icon={CircleDollarSign} />
+      </div>
+    </section>
     <div className="bd-metrics">
-      <Metric label="Net revenue" value={k.revenue} delta={change(k.revenue, data.previous.revenue)} icon={CircleDollarSign} format="money" />
+      <Metric label="Period order value" value={k.revenue} delta={change(k.revenue, data.previous.revenue)} icon={CircleDollarSign} format="money" />
       <Metric label="Orders" value={k.orders} delta={change(k.orders, data.previous.orders)} icon={ShoppingBag} />
-      <Metric label="Store visits" value={k.visits} delta={change(k.visits, data.previous.visits)} icon={Eye} />
-      <Metric label="Conversion" value={k.conversion} delta={change(k.conversion, data.previous.conversion)} icon={Activity} format="percent" />
+      <Metric label="Visits" value={k.visits} delta={change(k.visits, data.previous.visits)} icon={Eye} />
+      <Metric label="Product clicks" value={k.clicks} delta={change(k.clicks, data.previous.clicks)} icon={Activity} />
+      <Metric label="Buyers" value={k.customers} delta={change(k.customers, data.previous.customers)} icon={Users} />
+      <Metric label="Conversion" value={k.conversion} delta={change(k.conversion, data.previous.conversion)} icon={BarChart3} format="percent" />
+      <Metric label="COD orders" value={codOrders} icon={Package} />
+      <Metric label="UPI orders" value={upiOrders} icon={CircleDollarSign} />
     </div>
+    <p className="bd-data-note">Order value uses non-cancelled order totals. Payment settlement is not recorded by the store yet.</p>
     <div className="bd-charts-row">
-      <Panel title="Revenue and orders" eyebrow="DAILY TREND" className="bd-chart-panel">
-        {data.series.every((point) => point.revenue === 0 && point.orders === 0) ? <EmptyState label="No orders in this period" /> : <div className="bd-chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={data.series} margin={{ top: 12, right: 8, left: 2, bottom: 0 }}><defs><linearGradient id="bd-revenue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#236b5d" stopOpacity={0.23} /><stop offset="95%" stopColor="#236b5d" stopOpacity={0} /></linearGradient></defs><CartesianGrid vertical={false} stroke="#e8e9e3" /><XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} /><YAxis yAxisId="revenue" tickLine={false} axisLine={false} width={58} tickFormatter={(value: number) => `₹${value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}`} /><YAxis yAxisId="orders" orientation="right" tickLine={false} axisLine={false} width={30} allowDecimals={false} /><Tooltip formatter={(value: number, name: string) => [name === "Revenue" ? currency(value) : value, name]} labelFormatter={(label) => `Date: ${label}`} /><Legend /><Area yAxisId="revenue" type="monotone" dataKey="revenue" name="Revenue" stroke="#236b5d" fill="url(#bd-revenue)" strokeWidth={2.5} /><Area yAxisId="orders" type="monotone" dataKey="orders" name="Orders" stroke="#d97054" fill="transparent" strokeWidth={2} /></AreaChart></ResponsiveContainer></div>}
+      <Panel title="Order value and orders" eyebrow="DAILY TREND" className="bd-chart-panel">
+        {data.series.every((point) => point.revenue === 0 && point.orders === 0) ? <EmptyState label="No orders in this period" /> : <div className="bd-chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={data.series} margin={{ top: 12, right: 8, left: 2, bottom: 0 }}><defs><linearGradient id="bd-revenue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#236b5d" stopOpacity={0.23} /><stop offset="95%" stopColor="#236b5d" stopOpacity={0} /></linearGradient></defs><CartesianGrid vertical={false} stroke="#e8e9e3" /><XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} /><YAxis yAxisId="revenue" tickLine={false} axisLine={false} width={58} tickFormatter={(value: number) => `₹${value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}`} /><YAxis yAxisId="orders" orientation="right" tickLine={false} axisLine={false} width={30} allowDecimals={false} /><Tooltip formatter={(value: number, name: string) => [name === "Order value" ? currency(value) : value, name]} labelFormatter={(label) => `Date: ${label}`} /><Legend /><Area yAxisId="revenue" type="monotone" dataKey="revenue" name="Order value" stroke="#236b5d" fill="url(#bd-revenue)" strokeWidth={2.5} /><Area yAxisId="orders" type="monotone" dataKey="orders" name="Orders" stroke="#d97054" fill="transparent" strokeWidth={2} /></AreaChart></ResponsiveContainer></div>}
       </Panel>
       <Panel title="Traffic funnel" eyebrow="VISITS TO PURCHASE" className="bd-funnel-panel">
         <div className="bd-funnel-kpis"><div><strong>{k.clickRate.toFixed(1)}%</strong><span>visit to product click</span></div><div><strong>{k.conversion.toFixed(2)}%</strong><span>visit to order</span></div></div>
         <div className="bd-funnel">{data.funnel.map((step, index) => { const width = data.funnel[0]?.value ? Math.max(8, (step.value / data.funnel[0].value) * 100) : 8; return <div key={step.name}><span>{step.name}<b>{step.value.toLocaleString("en-IN")}</b></span><i style={{ width: `${width}%`, background: palette[index] }} /></div>; })}</div>
+      </Panel>
+    </div>
+    <div className="bd-charts-row bd-traffic-row">
+      <Panel title="Visits and product clicks" eyebrow="TRAFFIC TREND" className="bd-chart-panel">
+        {data.series.every((point) => point.visits === 0 && point.clicks === 0) ? <EmptyState label="No traffic recorded in this period" /> : <div className="bd-chart"><ResponsiveContainer width="100%" height="100%"><LineChart data={data.series} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}><CartesianGrid vertical={false} stroke="#e8e9e3" /><XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} /><YAxis tickLine={false} axisLine={false} allowDecimals={false} /><Tooltip formatter={(value: number, name: string) => [value.toLocaleString("en-IN"), name]} labelFormatter={(label) => `Date: ${label}`} /><Legend /><Line type="monotone" dataKey="visits" name="Visits" stroke="#4664a8" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="clicks" name="Product clicks" stroke="#d97054" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer></div>}
+      </Panel>
+      <Panel title="Payment mix" eyebrow="COD VS UPI" className="bd-chart-panel">
+        {data.byPayment.every((payment) => payment.count === 0) ? <EmptyState label="No orders in this period" /> : <div className="bd-weekday-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.byPayment} margin={{ top: 12, right: 8, left: 6, bottom: 0 }}><CartesianGrid vertical={false} stroke="#e8e9e3" /><XAxis dataKey="name" tickLine={false} axisLine={false} /><YAxis yAxisId="orders" tickLine={false} axisLine={false} allowDecimals={false} /><YAxis yAxisId="revenue" orientation="right" tickLine={false} axisLine={false} tickFormatter={(value: number) => `₹${value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}`} /><Tooltip formatter={(value: number, name: string) => [name === "Order value" ? currency(value) : value, name]} /><Legend /><Bar yAxisId="orders" dataKey="count" name="Orders" fill="#4664a8" radius={[3, 3, 0, 0]} /><Bar yAxisId="revenue" dataKey="revenue" name="Order value" fill="#edae49" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer></div>}
       </Panel>
     </div>
     <div className="bd-insights-grid">
@@ -311,8 +377,7 @@ function Overview({ data, loading, error, orders, onNavigate }: { data?: Analyti
       <Panel title="Customer and basket health" eyebrow="CUSTOMER ANALYSIS"><div className="bd-stat-lines"><div><span>Average order value</span><strong>{currency(k.aov)}</strong></div><div><span>Customers</span><strong>{k.customers.toLocaleString("en-IN")}</strong></div><div><span>New customers</span><strong>{k.newCustomers.toLocaleString("en-IN")}</strong></div><div><span>Repeat customer rate</span><strong>{k.repeatRate.toFixed(1)}%</strong></div><div><span>Cancelled order rate</span><strong>{k.cancelRate.toFixed(1)}%</strong></div><div><span>Units sold</span><strong>{k.units.toLocaleString("en-IN")}</strong></div></div><button className="bd-inline-link" onClick={() => onNavigate("customers")}>View customer list <ArrowRight size={14} /></button></Panel>
       <Panel title="Inventory watch" eyebrow="STOCK COVER"><div className="bd-stock-list">{data.inventory.slice(0, 5).map((item) => <div key={item.id}><span><strong>{item.name}</strong><small>{item.soldInPeriod} sold · {item.stock} in stock</small></span><b className={item.daysLeft !== null && item.daysLeft < 14 ? "warning" : ""}>{item.daysLeft === null ? "No forecast" : `${item.daysLeft} days left`}</b></div>)}</div><div className="bd-stock-foot"><span>Inventory retail value</span><strong>{currency(data.inventoryValue)}</strong></div></Panel>
     </div>
-    <div className="bd-insights-grid extra">
-      <Panel title="Payment mix" eyebrow="CHECKOUT"><RankedList rows={data.byPayment.map((row) => ({ label: row.name, detail: `${row.count} orders`, value: currency(row.revenue) }))} empty="No payments recorded in this period" /></Panel>
+    <div className="bd-insights-grid lower">
       <Panel title="Demand by weekday" eyebrow="ORDER PATTERN"><div className="bd-weekday-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.weekday} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}><CartesianGrid vertical={false} stroke="#e8e9e3" /><XAxis dataKey="name" tickLine={false} axisLine={false} /><YAxis tickLine={false} axisLine={false} allowDecimals={false} /><Tooltip formatter={(value: number, name: string) => [name === "Revenue" ? currency(value) : value, name]} /><Legend /><Bar dataKey="orders" name="Orders" fill="#236b5d" radius={[3, 3, 0, 0]} /><Bar dataKey="revenue" name="Revenue" fill="#edae49" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer></div></Panel>
       <Panel title="Top customers" eyebrow="BY NET SPEND"><RankedList rows={data.topCustomers.map((row) => ({ label: row.name, detail: `${row.orders} orders · ${row.contact}`, value: currency(row.spent) }))} empty="No customers in this period" /></Panel>
     </div>
@@ -355,34 +420,71 @@ function CustomersView({ customers, loading, error, search, setSearch }: { custo
   </div>;
 }
 
-const emptyProduct: ProductForm = { name: "", category: "General", description: "", price: 0, compareAtPrice: 0, rating: 0, reviewCount: 0, stock: 0, images: [], highlights: [] };
+function ProductImagePreview({ src, index }: { src: string; index: number }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
+  if (!src.trim() || failed) {
+    return <div className="bd-image-preview empty"><ImagePlus size={19} /><span>{failed ? "Preview unavailable" : "Live preview"}</span></div>;
+  }
+  return <img className="bd-image-preview" src={src} alt={`Product image ${index + 1} preview`} onError={() => setFailed(true)} />;
+}
 
 function ProductsView({ products, loading, error, saveProduct, deleteProduct, pending }: { products: Product[]; loading: boolean; error: Error | null; saveProduct: (variables: { id?: string; data: ProductForm }) => Promise<Product>; deleteProduct: (id: string) => void; pending: boolean }) {
-  const [form, setForm] = useState<ProductForm | null>(null);
+  const [form, setForm] = useState<ProductDraft | null>(null);
   const [editingId, setEditingId] = useState<string>();
   const [formError, setFormError] = useState("");
   const startEdit = (product?: Product) => {
     setEditingId(product?.id);
-    setForm(product ? { ...product } : { ...emptyProduct, images: [""], highlights: [""] });
+    setForm({
+      name: product?.name ?? "",
+      category: product?.category ?? "General",
+      description: product?.description ?? "",
+      price: product ? String(product.price) : "",
+      compareAtPrice: product ? String(product.compareAtPrice) : "",
+      stock: product ? String(product.stock) : "",
+      rating: product ? String(product.rating) : "",
+      reviewCount: product ? String(product.reviewCount) : "",
+      images: product?.images.length ? [...product.images] : [""],
+      highlights: product?.highlights.length ? [...product.highlights] : [""],
+    });
     setFormError("");
   };
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!form) return;
+    const images = form.images.map((image) => image.trim()).filter(Boolean);
+    if (!images.length) {
+      setFormError("Add at least one product image URL.");
+      return;
+    }
     try {
-      await saveProduct({ id: editingId, data: { ...form, images: form.images.filter(Boolean), highlights: form.highlights.filter(Boolean) } });
+      await saveProduct({ id: editingId, data: {
+        ...form,
+        price: Number(form.price),
+        compareAtPrice: Number(form.compareAtPrice),
+        stock: Number(form.stock),
+        rating: Number(form.rating),
+        reviewCount: Number(form.reviewCount),
+        images,
+        highlights: form.highlights.map((item) => item.trim()).filter(Boolean),
+      } });
       setForm(null);
     } catch (saveError) {
       setFormError(saveError instanceof Error ? saveError.message : "Could not save product");
     }
   };
   const setTextList = (key: "images" | "highlights", value: string) => setForm((current) => current && ({ ...current, [key]: value.split("\n") }));
+  const setImage = (index: number, value: string) => setForm((current) => current && ({ ...current, images: current.images.map((image, itemIndex) => itemIndex === index ? value : image) }));
+  const addImage = () => setForm((current) => current && ({ ...current, images: [...current.images, ""] }));
+  const removeImage = (index: number) => setForm((current) => current && ({ ...current, images: current.images.length > 1 ? current.images.filter((_, itemIndex) => itemIndex !== index) : current.images }));
   return <div className="bd-content">
     <div className="bd-page-intro"><div><h2>Product catalog</h2><p>Catalog data and available stock are managed in the live database.</p></div><button className="bd-button primary" onClick={() => startEdit()}><Plus size={16} /> Add product</button></div>
     {loading ? <div className="bd-state">Loading catalog...</div> : error ? <div className="bd-state error">{error.message}</div> : <div className="bd-product-list">{products.map((product) => <article className="bd-product-row" key={product.id}><img src={product.images[0]} alt="" /><div className="bd-product-info"><strong>{product.name}</strong><small>{product.category} · {product.id}</small></div><div><small>Price</small><strong>{currency(product.price)}</strong></div><div><small>Available</small><strong className={product.stock < 10 ? "warning" : ""}>{product.stock}</strong></div><button className="bd-button secondary compact" onClick={() => startEdit(product)}>Edit</button><button className="bd-icon-button subtle-danger" aria-label={`Delete ${product.name}`} onClick={() => window.confirm(`Remove ${product.name} from the catalog? Existing orders stay in the database.`) && deleteProduct(product.id)} disabled={pending}><Trash2 size={15} /></button></article>)}{!products.length && <EmptyState label="No products in the catalog" />}</div>}
     {form && <div className="bd-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setForm(null)}><section className="bd-product-modal"><header><div><span className="bd-overline">CATALOG</span><h2>{editingId ? "Edit product" : "Add product"}</h2></div><button className="bd-icon-button" onClick={() => setForm(null)} aria-label="Close"><X size={17} /></button></header><form onSubmit={submit}>
-      <div className="bd-form-grid"><label>Name<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label><label>Category<input required value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} /></label><label>Price<input required type="number" min="0" step="0.01" value={form.price} onChange={(event) => setForm({ ...form, price: Number(event.target.value) })} /></label><label>Compare-at price<input required type="number" min="0" step="0.01" value={form.compareAtPrice} onChange={(event) => setForm({ ...form, compareAtPrice: Number(event.target.value) })} /></label><label>Available stock<input required type="number" min="0" value={form.stock} onChange={(event) => setForm({ ...form, stock: Number(event.target.value) })} /></label><label>Rating<input required type="number" min="0" max="5" step="0.1" value={form.rating} onChange={(event) => setForm({ ...form, rating: Number(event.target.value) })} /></label></div>
-      <label>Description<textarea required value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label><label>Image URLs <small>One URL per line</small><textarea value={form.images.join("\n")} onChange={(event) => setTextList("images", event.target.value)} /></label><label>Highlights <small>One per line</small><textarea value={form.highlights.join("\n")} onChange={(event) => setTextList("highlights", event.target.value)} /></label>
+      <div className="bd-form-grid"><label>Name<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label><label>Category<input required value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} /></label><label>Price<input required type="number" min="0" step="0.01" placeholder="e.g. 1299" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} /></label><label>Compare-at price<input required type="number" min="0" step="0.01" placeholder="e.g. 1999" value={form.compareAtPrice} onChange={(event) => setForm({ ...form, compareAtPrice: event.target.value })} /></label><label>Available stock<input required type="number" min="0" step="1" placeholder="e.g. 25" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} /></label><label>Rating<input required type="number" min="0" max="5" step="0.1" placeholder="0 to 5" value={form.rating} onChange={(event) => setForm({ ...form, rating: event.target.value })} /></label><label>Review count<input required type="number" min="0" step="1" placeholder="e.g. 0" value={form.reviewCount} onChange={(event) => setForm({ ...form, reviewCount: event.target.value })} /></label></div>
+      <label>Description<textarea required value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label>
+      <section className="bd-image-editor"><header><div><strong>Product images</strong><small>Paste an image URL to preview it. Each image has its own row.</small></div><button type="button" className="bd-button secondary compact" onClick={addImage}><ImagePlus size={14} /> Add image</button></header>{form.images.map((image, index) => <div className="bd-image-row" key={`image-${index}`}><ProductImagePreview src={image} index={index} /><label><span>Image {index + 1} URL</span><input type="url" value={image} onChange={(event) => setImage(index, event.target.value)} placeholder="https://example.com/product.jpg" /></label><button type="button" className="bd-icon-button subtle-danger" onClick={() => removeImage(index)} disabled={form.images.length === 1} aria-label={`Remove image ${index + 1}`} title="Remove image"><Trash2 size={15} /></button></div>)}</section>
+      <label>Highlights <small>One per line</small><textarea value={form.highlights.join("\n")} onChange={(event) => setTextList("highlights", event.target.value)} /></label>
       {formError && <p className="bd-error">{formError}</p>}<footer><button type="button" className="bd-button secondary" onClick={() => setForm(null)}>Cancel</button><button className="bd-button primary" disabled={pending}>Save product <Check size={15} /></button></footer>
     </form></section></div>}
   </div>;

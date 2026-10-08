@@ -28,7 +28,7 @@ import { DAY_MS, istDay } from "../lib/time";
 const router: IRouter = Router();
 const analyticsId = "summary";
 const ADMIN_SESSION_COOKIE = "buydo_admin_session";
-const ADMIN_SESSION_TTL_SECONDS = 8 * 60 * 60;
+const ADMIN_SESSION_TTL_SECONDS = 30 * 60;
 
 const getSessionSecret = () => process.env.SESSION_SECRET ?? "";
 

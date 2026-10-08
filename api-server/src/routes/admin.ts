@@ -10,15 +10,38 @@ router.use(requireAdminAuth);
 const STATUSES = ["Processing", "Confirmed", "Shipped", "Delivered", "Cancelled"];
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const round = (n: number, d = 0) => Number(n.toFixed(d));
+const shiftDay = (day: string, offset: number) =>
+  new Date(Date.parse(`${day}T00:00:00.000Z`) + offset * DAY_MS).toISOString().slice(0, 10);
 
 // ================= Analytics (100% computed from real data) =================
 router.get("/analytics", async (req, res) => {
   const requested = Number(req.query.days);
-  const days = [7, 30, 90].includes(requested) ? requested : 30;
   const now = new Date();
-  const keyAt = (i: number) => istDay(new Date(now.getTime() - i * DAY_MS));
-  const curKeys = Array.from({ length: days }, (_, i) => keyAt(days - 1 - i));
-  const prevKeys = Array.from({ length: days }, (_, i) => keyAt(2 * days - 1 - i));
+  const todayKey = istDay(now);
+  const fromParam = typeof req.query.from === "string" ? req.query.from : "";
+  const toParam = typeof req.query.to === "string" ? req.query.to : "";
+  let days = [7, 30, 90].includes(requested) ? requested : 30;
+  let fromKey = shiftDay(todayKey, -(days - 1));
+
+  if (fromParam || toParam) {
+    const validDate = (value: string) => {
+      const parsed = new Date(`${value}T00:00:00.000Z`);
+      return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+    };
+    if (!validDate(fromParam) || !validDate(toParam) || fromParam > toParam || toParam > todayKey) {
+      res.status(400).json({ error: "Choose a valid date range ending today or earlier" });
+      return;
+    }
+    days = Math.floor((Date.parse(`${toParam}T00:00:00.000Z`) - Date.parse(`${fromParam}T00:00:00.000Z`)) / DAY_MS) + 1;
+    if (days > 365) {
+      res.status(400).json({ error: "Date range cannot exceed 365 days" });
+      return;
+    }
+    fromKey = fromParam;
+  }
+
+  const curKeys = Array.from({ length: days }, (_, i) => shiftDay(fromKey, i));
+  const prevKeys = Array.from({ length: days }, (_, i) => shiftDay(fromKey, i - days));
   const curSet = new Set(curKeys);
   const prevSet = new Set(prevKeys);
 
@@ -130,13 +153,26 @@ router.get("/analytics", async (req, res) => {
   const best = [...series].sort((a, b) => b.revenue - a.revenue)[0];
   const today = series[series.length - 1];
   const yesterday = series[series.length - 2];
+  const todayOrders = allOrders.filter((o) => istDay(o.createdAt) === todayKey && o.status !== "Cancelled");
+  const todayCustomers = new Set(todayOrders.map((o) => o.customerContact.toLowerCase()));
+  const todayDaily = daily.get(todayKey);
 
   res.json({
     days,
     generatedAt: now.toISOString(),
     kpis: cur,
     previous: prev,
-    today: { revenue: today?.revenue ?? 0, orders: today?.orders ?? 0, visits: today?.visits ?? 0, yRevenue: yesterday?.revenue ?? 0, yOrders: yesterday?.orders ?? 0 },
+    today: {
+      revenue: round(todayOrders.reduce((sum, o) => sum + o.total, 0), 2),
+      orders: todayOrders.length,
+      visits: todayDaily?.visits ?? 0,
+      clicks: todayDaily?.clicks ?? 0,
+      buyers: todayCustomers.size,
+      cod: todayOrders.filter((o) => o.paymentMethod === "COD").length,
+      upi: todayOrders.filter((o) => o.paymentMethod === "UPI").length,
+      yRevenue: yesterday?.revenue ?? 0,
+      yOrders: yesterday?.orders ?? 0,
+    },
     series,
     byStatus,
     byPayment,
