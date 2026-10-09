@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
@@ -135,6 +135,66 @@ function change(current: number, previous: number) {
   if (!previous) return current ? "New" : "No change";
   const percent = ((current - previous) / Math.abs(previous)) * 100;
   return `${percent > 0 ? "+" : ""}${percent.toFixed(1)}%`;
+}
+
+function useAnimatedNumber(value: number, duration = 650) {
+  const [display, setDisplay] = useState(value);
+  const previous = useRef(value);
+  useEffect(() => {
+    const from = previous.current;
+    previous.current = value;
+    if (from === value) {
+      setDisplay(value);
+      return;
+    }
+    let frame = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(from + (value - from) * eased);
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value, duration]);
+  return display;
+}
+
+function Skeleton({ className = "", style }: { className?: string; style?: CSSProperties }) {
+  return <div className={`bd-skeleton ${className}`} style={style} aria-hidden="true" />;
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="bd-content" role="status" aria-label="Loading live store analytics">
+      <div className="bd-skeleton-grid">
+        {Array.from({ length: 8 }, (_, index) => <Skeleton key={index} className="bd-skeleton-metric" />)}
+      </div>
+      <div className="bd-skeleton-grid two">
+        <Skeleton className="bd-skeleton-panel" />
+        <Skeleton className="bd-skeleton-panel" />
+      </div>
+    </div>
+  );
+}
+
+function TableSkeleton({ rows = 6 }: { rows?: number }) {
+  return (
+    <div className="bd-table-wrap">
+      <div className="bd-skeleton-table-stack" role="status" aria-label="Loading">
+        {Array.from({ length: rows }, (_, index) => <Skeleton key={index} className="bd-skeleton-table" />)}
+      </div>
+    </div>
+  );
+}
+
+function ListSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="bd-customer-list" role="status" aria-label="Loading">
+      {Array.from({ length: rows }, (_, index) => <Skeleton key={index} className="bd-skeleton-row" style={{ margin: 8 }} />)}
+    </div>
+  );
 }
 
 function AdminApp() {
@@ -312,7 +372,8 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
 }
 
 function Metric({ label, value, delta, icon: Icon, format = "number" }: { label: string; value: number; delta?: string; icon: typeof Activity; format?: "number" | "money" | "percent" }) {
-  const display = format === "money" ? currency(value) : format === "percent" ? `${value.toFixed(1)}%` : value.toLocaleString("en-IN");
+  const animated = useAnimatedNumber(value);
+  const display = format === "money" ? currency(animated) : format === "percent" ? `${animated.toFixed(1)}%` : Math.round(animated).toLocaleString("en-IN");
   const positive = delta?.startsWith("+") || delta === "New";
   return <article className="bd-metric"><div className="bd-metric-head"><span>{label}</span><Icon size={17} /></div><strong>{display}</strong><small className={positive ? "up" : ""}>{delta ? <>{positive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}{delta} vs previous period</> : "Live total"}</small></article>;
 }
@@ -322,7 +383,7 @@ function Panel({ title, eyebrow, children, className = "" }: { title: string; ey
 }
 
 function Overview({ data, loading, error, orders, onNavigate, onRetry }: { data?: Analytics; loading: boolean; error: Error | null; orders: Order[]; onNavigate: (tab: AdminTab) => void; onRetry: () => void }) {
-  if (loading) return <div className="bd-state" role="status"><RefreshCw size={17} /> Loading live store analytics...</div>;
+  if (loading) return <DashboardSkeleton />;
   if (error || !data) return <div className="bd-error-state"><div><span className="bd-overline">LIVE DATA UNAVAILABLE</span><strong>Overview could not load analytics.</strong><small>{error?.message ?? "The analytics endpoint returned no data."}</small></div><button className="bd-button secondary" onClick={onRetry}><RefreshCw size={14} /> Retry</button></div>;
   const k = data.kpis;
   const codOrders = data.byPayment.find((payment) => payment.name === "COD")?.count ?? 0;
@@ -397,7 +458,7 @@ function OrdersView({ orders, loading, error, search, setSearch, selected, setSe
   return <div className="bd-content">
     <div className="bd-page-intro"><div><h2>Order fulfilment</h2><p>Customer details and status for every order in the database.</p></div><a className="bd-button secondary" href="/api/admin/export/orders.csv"><Download size={15} /> Export CSV</a></div>
     <div className="bd-list-toolbar"><SearchField value={search} onChange={setSearch} placeholder="Search ID, customer, phone, address..." />{selected.length > 0 && <button className="bd-button danger" disabled={pending} onClick={() => window.confirm(`Delete ${selected.length} selected order(s)? This cannot be undone.`) && bulkDelete(selected)}><Trash2 size={15} />Delete selected ({selected.length})</button>}<span>{orders.length} order{orders.length === 1 ? "" : "s"}</span></div>
-    {loading ? <div className="bd-state">Loading orders...</div> : error ? <div className="bd-state error">{error.message}</div> : <OrderTable rows={orders} selected={selected} onToggle={toggle} onStatus={updateStatus} onDelete={(id) => window.confirm("Permanently delete this order?") && deleteOrder(id)} pending={pending} />}
+    {loading ? <TableSkeleton rows={6} /> : error ? <div className="bd-state error">{error.message}</div> : <OrderTable rows={orders} selected={selected} onToggle={toggle} onStatus={updateStatus} onDelete={(id) => window.confirm("Permanently delete this order?") && deleteOrder(id)} pending={pending} />}
   </div>;
 }
 
@@ -418,7 +479,7 @@ function CustomersView({ customers, loading, error, search, setSearch }: { custo
   return <div className="bd-content">
     <div className="bd-page-intro"><div><h2>Customer records</h2><p>Grouped by checkout phone number. Details come directly from submitted orders.</p></div><span className="bd-data-stamp"><Users size={15} /> {customers.length} customers</span></div>
     <div className="bd-list-toolbar"><SearchField value={search} onChange={setSearch} placeholder="Search name, phone, or address..." /><span>{customers.length} matching records</span></div>
-    {loading ? <div className="bd-state">Loading customers...</div> : error ? <div className="bd-state error">{error.message}</div> : !customers.length ? <EmptyState label="No customers match this search" /> : <div className="bd-customer-list">{customers.map((customer) => <article className="bd-customer-row" key={customer.contact.toLowerCase()}><div className="bd-customer-main"><span className="bd-customer-avatar">{customer.name.slice(0, 1).toUpperCase()}</span><div><strong>{customer.name}</strong><a href={`tel:${customer.contact}`}>{customer.contact}</a><span>{customer.address}</span></div></div><div className="bd-customer-metric"><small>Orders</small><strong>{customer.orders}</strong></div><div className="bd-customer-metric"><small>Net spend</small><strong>{currency(customer.spent)}</strong></div><div className="bd-customer-metric"><small>Cancelled</small><strong>{customer.cancelled}</strong></div><div className="bd-customer-dates"><span>First order <b>{dateOnly(customer.firstOrder)}</b></span><span>Latest order <b>{dateOnly(customer.lastOrder)}</b></span></div></article>)}</div>}
+    {loading ? <ListSkeleton rows={5} /> : error ? <div className="bd-state error">{error.message}</div> : !customers.length ? <EmptyState label="No customers match this search" /> : <div className="bd-customer-list">{customers.map((customer) => <article className="bd-customer-row" key={customer.contact.toLowerCase()}><div className="bd-customer-main"><span className="bd-customer-avatar">{customer.name.slice(0, 1).toUpperCase()}</span><div><strong>{customer.name}</strong><a href={`tel:${customer.contact}`}>{customer.contact}</a><span>{customer.address}</span></div></div><div className="bd-customer-metric"><small>Orders</small><strong>{customer.orders}</strong></div><div className="bd-customer-metric"><small>Net spend</small><strong>{currency(customer.spent)}</strong></div><div className="bd-customer-metric"><small>Cancelled</small><strong>{customer.cancelled}</strong></div><div className="bd-customer-dates"><span>First order <b>{dateOnly(customer.firstOrder)}</b></span><span>Latest order <b>{dateOnly(customer.lastOrder)}</b></span></div></article>)}</div>}
   </div>;
 }
 
@@ -481,7 +542,7 @@ function ProductsView({ products, loading, error, saveProduct, deleteProduct, pe
   const removeImage = (index: number) => setForm((current) => current && ({ ...current, images: current.images.length > 1 ? current.images.filter((_, itemIndex) => itemIndex !== index) : current.images }));
   return <div className="bd-content">
     <div className="bd-page-intro"><div><h2>Product catalog</h2><p>Catalog data and available stock are managed in the live database.</p></div><button className="bd-button primary" onClick={() => startEdit()}><Plus size={16} /> Add product</button></div>
-    {loading ? <div className="bd-state">Loading catalog...</div> : error ? <div className="bd-state error">{error.message}</div> : <div className="bd-product-list">{products.map((product) => <article className="bd-product-row" key={product.id}><img src={product.images[0]} alt="" /><div className="bd-product-info"><strong>{product.name}</strong><small>{product.category} · {product.id}</small></div><div><small>Price</small><strong>{currency(product.price)}</strong></div><div><small>Available</small><strong className={product.stock < 10 ? "warning" : ""}>{product.stock}</strong></div><button className="bd-button secondary compact" onClick={() => startEdit(product)}>Edit</button><button className="bd-icon-button subtle-danger" aria-label={`Delete ${product.name}`} onClick={() => window.confirm(`Remove ${product.name} from the catalog? Existing orders stay in the database.`) && deleteProduct(product.id)} disabled={pending}><Trash2 size={15} /></button></article>)}{!products.length && <EmptyState label="No products in the catalog" />}</div>}
+    {loading ? <ListSkeleton rows={4} /> : error ? <div className="bd-state error">{error.message}</div> : <div className="bd-product-list">{products.map((product) => <article className="bd-product-row" key={product.id}><img src={product.images[0]} alt="" /><div className="bd-product-info"><strong>{product.name}</strong><small>{product.category} · {product.id}</small></div><div><small>Price</small><strong>{currency(product.price)}</strong></div><div><small>Available</small><strong className={product.stock < 10 ? "warning" : ""}>{product.stock}</strong></div><button className="bd-button secondary compact" onClick={() => startEdit(product)}>Edit</button><button className="bd-icon-button subtle-danger" aria-label={`Delete ${product.name}`} onClick={() => window.confirm(`Remove ${product.name} from the catalog? Existing orders stay in the database.`) && deleteProduct(product.id)} disabled={pending}><Trash2 size={15} /></button></article>)}{!products.length && <EmptyState label="No products in the catalog" />}</div>}
     {form && <div className="bd-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setForm(null)}><section className="bd-product-modal"><header><div><span className="bd-overline">CATALOG</span><h2>{editingId ? "Edit product" : "Add product"}</h2></div><button className="bd-icon-button" onClick={() => setForm(null)} aria-label="Close"><X size={17} /></button></header><form onSubmit={submit}>
       <div className="bd-form-grid"><label>Name<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label><label>Category<input required value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} /></label><label>Price<input required type="number" min="0" step="0.01" placeholder="e.g. 1299" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} /></label><label>Compare-at price<input required type="number" min="0" step="0.01" placeholder="e.g. 1999" value={form.compareAtPrice} onChange={(event) => setForm({ ...form, compareAtPrice: event.target.value })} /></label><label>Available stock<input required type="number" min="0" step="1" placeholder="e.g. 25" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} /></label><label>Rating<input required type="number" min="0" max="5" step="0.1" placeholder="0 to 5" value={form.rating} onChange={(event) => setForm({ ...form, rating: event.target.value })} /></label><label>Review count<input required type="number" min="0" step="1" placeholder="e.g. 0" value={form.reviewCount} onChange={(event) => setForm({ ...form, reviewCount: event.target.value })} /></label></div>
       <label>Description<textarea required value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label>
@@ -512,7 +573,7 @@ function DataTools({ database, loading, error, purge, pending }: { database?: Da
   };
   return <div className="bd-content">
     <div className="bd-page-intro"><div><h2>Database and retention</h2><p>Inspect live table counts, then remove records with an explicit confirmation.</p></div><span className="bd-data-stamp"><Database size={15} /> Production database</span></div>
-    {loading ? <div className="bd-state">Reading database overview...</div> : error ? <div className="bd-state error">{error.message}</div> : database && <>
+    {loading ? <div className="bd-skeleton-grid" role="status" aria-label="Reading database overview">{Array.from({ length: 5 }, (_, index) => <Skeleton key={index} className="bd-skeleton-metric" />)}</div> : error ? <div className="bd-state error">{error.message}</div> : database && <>
       <div className="bd-db-metrics"><div><span>Products</span><strong>{database.products}</strong></div><div><span>Orders</span><strong>{database.orders}</strong></div><div><span>Analytics days</span><strong>{database.analyticsDays}</strong></div><div><span>Oldest order</span><strong>{database.oldestOrder ? dateOnly(database.oldestOrder) : "None"}</strong></div><div><span>Latest order</span><strong>{database.newestOrder ? dateOnly(database.newestOrder) : "None"}</strong></div></div>
       <div className="bd-db-detail-grid"><Panel title="Orders by status" eyebrow="LIVE DATABASE"><div className="bd-stat-lines">{database.statuses.map((item) => <div key={item.status}><span>{item.status}</span><strong>{item.count}</strong></div>)}</div></Panel><Panel title="Table storage" eyebrow="POSTGRESQL"><div className="bd-stat-lines">{database.sizes.length ? database.sizes.map((item) => <div key={item.name}><span>{item.name}</span><strong>{(item.bytes / 1024).toFixed(1)} KB</strong></div>) : <p className="bd-muted">Storage size is unavailable for this database.</p>}</div></Panel></div>
     </>}
