@@ -226,6 +226,34 @@ function AdminApp() {
   return <AdminWorkspace onSignOut={() => setAuthenticated(false)} />;
 }
 
+function UserMenu({ onSignOut }: { onSignOut: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+  return (
+    <div className="bd-user-menu" ref={ref}>
+      <button className="bd-user-trigger" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-haspopup="menu">
+        <span className="bd-user-avatar">A</span>
+        <span className="bd-user-name">Admin</span>
+        <ChevronDown size={14} className={open ? "rotated" : ""} />
+      </button>
+      {open && (
+        <div className="bd-user-dropdown" role="menu">
+          <div className="bd-user-dropdown-head"><span className="bd-user-avatar large">A</span><div><strong>Store Admin</strong><small>BuyDo Operations</small></div></div>
+          <a href="/" role="menuitem"><Eye size={14} /> View storefront</a>
+          <button onClick={() => { setOpen(false); onSignOut(); }} role="menuitem" className="danger"><LogOut size={14} /> Sign out</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -356,7 +384,7 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
             </>}
             <button className="bd-icon-button" onClick={refresh} aria-label="Refresh data" title="Refresh data"><RefreshCw size={16} /></button>
             <span className="bd-live"><i /> Live data</span>
-            <button className="bd-signout" onClick={() => void logout()}><LogOut size={15} /> Sign out</button>
+            <UserMenu onSignOut={() => void logout()} />
           </div>
         </header>
         {notice && <div className="bd-notice"><Check size={15} />{notice}<button onClick={() => setNotice("")} aria-label="Dismiss"><X size={15} /></button></div>}
@@ -433,7 +461,7 @@ function Overview({ data, loading, error, orders, onNavigate, onRetry }: { data?
     </div>
     <div className="bd-insights-grid">
       <Panel title="Best-selling products" eyebrow="BY REVENUE"><RankedList rows={data.topProducts.map((row) => ({ label: row.name, detail: `${row.units} units`, value: currency(row.revenue) }))} empty="No product sales in this period" /></Panel>
-      <Panel title="Order status" eyebrow="FULFILMENT"><div className="bd-status-chart">{data.byStatus.some((item) => item.count) ? <><ResponsiveContainer width="46%" height={160}><PieChart><Pie data={data.byStatus.filter((item) => item.count)} dataKey="count" nameKey="name" innerRadius={44} outerRadius={69} paddingAngle={3}>{data.byStatus.filter((item) => item.count).map((item, index) => <Cell key={item.name} fill={palette[index % palette.length]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer><div className="bd-status-legend">{data.byStatus.map((item, index) => <span key={item.name}><i style={{ background: palette[index % palette.length] }} />{item.name}<b>{item.count}</b></span>)}</div></> : <EmptyState label="No orders recorded" />}</div></Panel>
+      <Panel title="Order status" eyebrow="FULFILMENT"><div className="bd-status-chart">{data.byStatus.some((item) => item.count) ? <><ResponsiveContainer width="46%" height={160}><PieChart><Pie data={data.byStatus.filter((item) => item.count)} dataKey="count" nameKey="name" innerRadius={44} outerRadius={69} paddingAngle={3}>{data.byStatus.filter((item) => item.count).map((item, index) => <Cell key={item.name} fill={palette[index % palette.length]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer><div className="bd-status-legend">{data.byStatus.filter((item) => item.count).map((item, index) => <span key={item.name}><i style={{ background: palette[index % palette.length] }} />{item.name}<b>{item.count}</b></span>)}</div></> : <EmptyState label="No orders recorded" />}</div></Panel>
       <Panel title="Demand by hour" eyebrow="ORDER ACTIVITY"><div className="bd-small-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.hourly} margin={{ top: 6, right: 2, left: -25, bottom: 0 }}><CartesianGrid vertical={false} stroke="#e8e9e3" /><XAxis dataKey="hour" tickLine={false} axisLine={false} tickFormatter={(hour: number) => hour % 6 === 0 ? `${hour}:00` : ""} /><YAxis tickLine={false} axisLine={false} allowDecimals={false} /><Tooltip labelFormatter={(hour) => `${hour}:00`} /><Bar dataKey="orders" name="Orders" fill="#4664a8" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer></div></Panel>
     </div>
     <div className="bd-insights-grid lower">
@@ -563,12 +591,24 @@ function DataTools({ database, loading, error, purge, pending }: { database?: Da
   const remove = async (event: FormEvent) => {
     event.preventDefault();
     if (confirmText !== "DELETE") return;
+    setResult("");
     try {
-      const response = await purge({ target, confirm: confirmText, all, ...(all ? {} : { olderThanDays: Number(age) }), ...(target === "orders" && status ? { status } : {}) });
-      setResult(`${response.deleted} ${target} record(s) deleted.`);
+      const payload: Record<string, unknown> = { target, confirm: confirmText };
+      if (all) {
+        payload.all = true;
+      } else {
+        payload.olderThanDays = Number(age);
+        if (target === "orders" && status) payload.status = status;
+      }
+      const response = await purge(payload);
+      if (response.deleted === 0) {
+        setResult(`No ${target} records matched your filters. Nothing was deleted.`);
+      } else {
+        setResult(`${response.deleted} ${target} record(s) deleted.`);
+      }
       setConfirmText("");
     } catch (purgeError) {
-      setResult(purgeError instanceof Error ? purgeError.message : "Delete failed");
+      setResult(purgeError instanceof Error ? `Error: ${purgeError.message}` : "Delete failed. Check your connection and try again.");
     }
   };
   return <div className="bd-content">
