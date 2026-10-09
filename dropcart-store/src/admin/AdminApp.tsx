@@ -4,8 +4,8 @@ import {
   useAdminCreateProduct,
   useAdminDeleteProduct,
   useGetAdminAnalytics,
-  useAdminGetOrders,
-  useAdminGetProducts,
+  useGetAdminOrders,
+  useGetAdminProducts,
   useAdminUpdateOrder,
   useAdminUpdateProduct,
 } from "@workspace/api-client-react";
@@ -65,12 +65,9 @@ export const AdminApp: React.FC = () => {
   const [formFeatured, setFormFeatured] = useState(false);
 
   // Queries
-  const { data: analytics, isLoading: analyticsLoading } =
-    useAdminGetAnalytics();
-  const { data: productsData, isLoading: productsLoading } =
-    useAdminGetProducts();
-  const { data: ordersData, isLoading: ordersLoading } = useAdminGetOrders();
-
+  const { data: analytics, isLoading: analyticsLoading } = useGetAdminAnalytics();
+const { data: productsData, isLoading: productsLoading } = useGetAdminProducts();
+const { data: ordersData, isLoading: ordersLoading } = useGetAdminOrders();
   // Mutations
   const createProduct = useAdminCreateProduct({
     mutation: {
