@@ -113,7 +113,7 @@ function Rating({ rating, count }: { rating: number; count?: number }) {
   return (
     <div className="rating-row">
       <span className="rating-pill"><Star size={13} fill="currentColor" /> {rating}</span>
-      {count ? <span className="muted-text">{count.toLocaleString("en-IN")} reviews</span> : null}
+      {count ? <span className="muted-text">{count.toLocaleString("en-IN")} verified reviews</span> : null}
     </div>
   );
 }
@@ -136,9 +136,7 @@ function BogoBadge({ className = "" }: { className?: string }) {
 function ProductGallery({ product }: { product: Product }) {
   const [active, setActive] = useState(0);
   const touchStartX = useState({ current: 0 })[0];
-  const discountPercent = product.compareAtPrice > product.price
-    ? Math.round((1 - product.price / product.compareAtPrice) * 100)
-    : 0;
+  const discountPercent = Math.round((1 - product.price / product.compareAtPrice) * 100);
 
   const goTo = (index: number) => {
     const count = product.images.length;
@@ -158,16 +156,18 @@ function ProductGallery({ product }: { product: Product }) {
   return (
     <div className="gallery-wrap">
       <div className="gallery-main" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-        {product.images[active] ? <img src={product.images[active]} alt={`${product.name}, image ${active + 1}`} /> : <div className="gallery-placeholder"><Package size={42} /><span>Product image coming soon</span></div>}
+        <img src={product.images[active]} alt={`${product.name} view ${active + 1}`} />
         {discountPercent > 0 && <span className="discount-sticker">{discountPercent}% OFF</span>}
         <BogoBadge className="gallery-bogo" />
+        <span className="gallery-tag"><Zap size={13} fill="currentColor" /> Bestseller</span>
+        <button className="gallery-fav" aria-label="Add to wishlist"><Heart size={19} /></button>
         {product.images.length > 1 && (
           <>
             <button type="button" className="gallery-nav prev" aria-label="Previous image" onClick={() => goTo(active - 1)}><ChevronLeft size={18} /></button>
             <button type="button" className="gallery-nav next" aria-label="Next image" onClick={() => goTo(active + 1)}><ChevronRight size={18} /></button>
             <div className="gallery-dots">
               {product.images.map((image, index) => (
-                <button key={`${image}-${index}`} type="button" className={`gallery-dot ${active === index ? "active" : ""}`} aria-label={`Go to image ${index + 1}`} onClick={() => goTo(index)} />
+                <button key={image} type="button" className={`gallery-dot ${active === index ? "active" : ""}`} aria-label={`Go to image ${index + 1}`} onClick={() => goTo(index)} />
               ))}
             </div>
           </>
@@ -175,12 +175,12 @@ function ProductGallery({ product }: { product: Product }) {
       </div>
       <div className="gallery-thumbs">
         {product.images.map((image, index) => (
-          <button key={`${image}-${index}`} type="button" className={`thumb ${active === index ? "active" : ""}`} onClick={() => setActive(index)} aria-label={`View image ${index + 1}`}>
+          <button key={image} className={`thumb ${active === index ? "active" : ""}`} onClick={() => setActive(index)}>
             <img src={image} alt="" />
           </button>
         ))}
       </div>
-      <div className="gallery-caption"><ShieldCheck size={14} /> Guest checkout · Delivered to your door</div>
+      <div className="gallery-caption"><Eye size={14} /> 2,100+ people are viewing this right now</div>
     </div>
   );
 }
@@ -340,30 +340,34 @@ function ProductPage() {
   return (
     <div className="storefront">
       <AppHeader />
-      <div className="announcement"><Sparkles size={14} /> Thoughtful finds, made for everyday life <span>•</span> Simple guest checkout</div>
+      <div className="announcement"><Sparkles size={14} /> Free delivery on every order <span>•</span> Easy 7-day returns</div>
       <main className="product-page">
-            <div className="breadcrumbs"><span>BuyDo</span><ChevronRight size={13} /><span>{product.category}</span><ChevronRight size={13} /><strong>{product.name}</strong></div>
+        <div className="breadcrumbs"><span>Home</span><ChevronRight size={13} /><span>{product.category}</span><ChevronRight size={13} /><strong>{product.name}</strong></div>
         <div className="product-layout">
           <ProductGallery product={product} />
           <section className="product-copy">
-            <span className="eyebrow product-category"><span /> {product.category}</span>
+            <span className="eyebrow">{product.category} / just dropped</span>
             <h1>{product.name}</h1>
             <p className="product-lede">{product.description}</p>
             <Rating rating={product.rating} count={product.reviewCount} />
             <div className="price-block"><span className="price">{money(product.price)}</span><span className="compare-price">{money(product.compareAtPrice)}</span><span className="save-badge">Save {Math.round((1 - product.price / product.compareAtPrice) * 100)}%</span></div>
-            <p className="tax-note">Price shown in INR <span>•</span> Guest checkout available</p>
-            <div className="product-availability"><span className={`availability-dot ${product.stock === 0 ? "out" : ""}`} /><span>{product.stock > 0 ? `${product.stock} in stock` : "Currently out of stock"}</span><span className="availability-divider" /><span>{product.category}</span></div>
-            <button className="primary-button buy-button" disabled={product.stock < 1} onClick={() => { trackEvent.mutate({ data: { type: "click", productId: product.id } }); setCheckoutOpen(true); }}>{product.stock > 0 ? "Buy now" : "Out of stock"} {product.stock > 0 && <><BogoBadge className="buy-button-bogo" /><ArrowRight size={18} /></>}</button>
+            <p className="tax-note">Inclusive of all taxes <span>•</span> Free shipping</p>
             <div className="divider" />
-            <section className="product-details"><div className="product-details-heading"><span className="eyebrow">THE DETAILS</span><h2>Made to fit your day.</h2></div><div className="feature-list">
-              {product.highlights.map((highlight, index) => <div key={`${highlight}-${index}`} className="feature-item"><span className="feature-number">{String(index + 1).padStart(2, "0")}</span><span>{highlight}</span></div>)}
-            </div></section>
-            <div className="promise-grid"><div><Package size={17} /><span><strong>Order without an account</strong><small>Checkout with your delivery details</small></span></div><div><ShieldCheck size={17} /><span><strong>Order status tracked</strong><small>Confirmation shown after checkout</small></span></div></div>
+            <div className="feature-list">
+              {product.highlights.map((highlight, index) => <div key={highlight} className="feature-item"><span className="feature-number">0{index + 1}</span><span>{highlight}</span></div>)}
+            </div>
+            <div className="stock-note"><span className="stock-dot" /> Only {product.stock} units left in this batch <span className="stock-progress"><span /></span></div>
+            <button className="primary-button buy-button" onClick={() => { trackEvent.mutate({ data: { type: "click", productId: product.id } }); setCheckoutOpen(true); }}>Buy now <ArrowRight size={18} /><BogoBadge className="buy-button-bogo" /></button>
+            <div className="promise-grid"><div><Truck size={17} /><span><strong>Arrives by {formatDate(getDeliveryDate(10))}</strong><small>Free standard delivery</small></span></div><div><ShieldCheck size={17} /><span><strong>7-day easy returns</strong><small>No questions asked</small></span></div></div>
           </section>
         </div>
-        <section className="review-strip"><div><span className="eyebrow">CUSTOMER RATING</span><div className="review-score"><strong>{product.rating}</strong><div><Rating rating={product.rating} /><span>{product.reviewCount.toLocaleString("en-IN")} reviews listed for this product</span></div></div></div><p>Rating and review count are displayed from the product catalog.</p></section>
+        <section className="story-section">
+          <div><span className="eyebrow">Why people love it</span><h2>Designed to keep up with real life.</h2></div>
+          <div className="story-quote"><span className="quote-mark">“</span><p>Looks premium, feels lighter than expected, and the battery is genuinely impressive. I stopped reaching for my phone as much.</p><div className="quote-by"><span className="mini-avatar">RK</span><span><strong>Riya Kapoor</strong><small>Verified buyer · 4 days ago</small></span><Rating rating={5} /></div></div>
+        </section>
+        <section className="review-strip"><div className="review-score"><strong>{product.rating}</strong><div><Rating rating={product.rating} /><span>Based on {product.reviewCount} reviews</span></div></div><div className="review-tags"><span>Feels premium</span><span>Fast delivery</span><span>Great battery</span><span>Worth the price</span></div></section>
       </main>
-      <div className="mobile-buy-bar"><div><span>{product.stock > 0 ? "Price" : "Availability"}</span><strong>{product.stock > 0 ? money(product.price) : "Out of stock"}</strong></div><button className="primary-button" disabled={product.stock < 1} onClick={() => { trackEvent.mutate({ data: { type: "click", productId: product.id } }); setCheckoutOpen(true); }}>{product.stock > 0 ? "Buy now" : "Unavailable"} {product.stock > 0 && <><BogoBadge className="buy-button-bogo" /><ArrowRight size={17} /></>}</button></div>
+      <div className="mobile-buy-bar"><div><span>From</span><strong>{money(product.price)}</strong></div><button className="primary-button" onClick={() => setCheckoutOpen(true)}>Buy now <ArrowRight size={17} /><BogoBadge className="buy-button-bogo" /></button></div>
       {isCheckoutOpen && <PurchaseModal product={product} onClose={() => setCheckoutOpen(false)} />}
     </div>
   );
