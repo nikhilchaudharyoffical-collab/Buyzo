@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useAdminCreateProduct,
   useAdminDeleteProduct,
-  useAdminGetAnalytics,
+  useGetAdminAnalytics,
   useAdminGetOrders,
   useAdminGetProducts,
   useAdminUpdateOrder,
