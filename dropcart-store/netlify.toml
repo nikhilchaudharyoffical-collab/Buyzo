@@ -1,0 +1,3 @@
+[build]
+  # Install workspace dependencies before building so `vite` is always available
+  command = "pnpm install --frozen-lockfile && pnpm --filter @workspace/dropcart-store... run build"
