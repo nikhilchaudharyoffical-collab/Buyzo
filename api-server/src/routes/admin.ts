@@ -262,34 +262,53 @@ router.post("/orders/bulk-delete", async (req, res) => {
 
 /** Purge data. Body: { target: "orders"|"analytics", status?, olderThanDays?, all?, confirm: "DELETE" } */
 router.post("/data/purge", async (req, res) => {
-  const { target, status, olderThanDays, all, confirm } = req.body ?? {};
-  if (confirm !== "DELETE") {
-    res.status(400).json({ error: 'Type "DELETE" to confirm' });
-    return;
-  }
-  if (target === "analytics") {
-    const cutoff = typeof olderThanDays === "number" && olderThanDays > 0 ? istDay(new Date(Date.now() - olderThanDays * DAY_MS)) : null;
-    if (!cutoff && !all) {
-      res.status(400).json({ error: "Choose a cutoff or 'all'" });
+  try {
+    const body = req.body ?? {};
+    const target = typeof body.target === "string" ? body.target : "";
+    const status = typeof body.status === "string" ? body.status : "";
+    const confirm = typeof body.confirm === "string" ? body.confirm : "";
+    const all = body.all === true;
+    const olderThanDays = typeof body.olderThanDays === "number" && Number.isFinite(body.olderThanDays) ? Math.floor(body.olderThanDays) : null;
+
+    if (confirm !== "DELETE") {
+      res.status(400).json({ error: 'Type "DELETE" to confirm' });
       return;
     }
-    const deleted = await db.delete(analyticsDailyTable).where(cutoff ? lt(analyticsDailyTable.day, cutoff) : undefined).returning({ d: analyticsDailyTable.day });
-    res.json({ deleted: deleted.length });
-    return;
-  }
-  if (target === "orders") {
-    const conds = [];
-    if (typeof status === "string" && STATUSES.includes(status)) conds.push(eq(ordersTable.status, status));
-    if (typeof olderThanDays === "number" && olderThanDays > 0) conds.push(lt(ordersTable.createdAt, new Date(Date.now() - olderThanDays * DAY_MS)));
-    if (!conds.length && !all) {
-      res.status(400).json({ error: "Choose a filter or 'all'" });
+
+    if (target === "analytics") {
+      if (all) {
+        const deleted = await db.delete(analyticsDailyTable).returning({ d: analyticsDailyTable.day });
+        res.json({ deleted: deleted.length });
+        return;
+      }
+      if (olderThanDays === null || olderThanDays <= 0) {
+        res.status(400).json({ error: "Choose a valid age filter or check 'Delete all'" });
+        return;
+      }
+      const cutoff = istDay(new Date(Date.now() - olderThanDays * DAY_MS));
+      const deleted = await db.delete(analyticsDailyTable).where(lt(analyticsDailyTable.day, cutoff)).returning({ d: analyticsDailyTable.day });
+      res.json({ deleted: deleted.length });
       return;
     }
-    const deleted = await db.delete(ordersTable).where(conds.length ? and(...conds) : undefined).returning({ id: ordersTable.id });
-    res.json({ deleted: deleted.length });
-    return;
+
+    if (target === "orders") {
+      const conds = [];
+      if (status && STATUSES.includes(status)) conds.push(eq(ordersTable.status, status));
+      if (olderThanDays !== null && olderThanDays > 0) conds.push(lt(ordersTable.createdAt, new Date(Date.now() - olderThanDays * DAY_MS)));
+      if (!conds.length && !all) {
+        res.status(400).json({ error: "Choose a filter or check 'Delete all'" });
+        return;
+      }
+      const deleted = await db.delete(ordersTable).where(conds.length ? and(...conds) : undefined).returning({ id: ordersTable.id });
+      res.json({ deleted: deleted.length });
+      return;
+    }
+
+    res.status(400).json({ error: "Unknown target" });
+  } catch (error) {
+    console.error("Purge failed:", error);
+    res.status(500).json({ error: "Delete failed on the server. Check server logs." });
   }
-  res.status(400).json({ error: "Unknown target" });
 });
 
 router.get("/export/orders.csv", async (_req, res) => {
