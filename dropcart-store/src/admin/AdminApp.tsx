@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useAdminCreateProduct,
@@ -250,10 +249,10 @@ export const AdminApp: React.FC = () => {
         </nav>
 
         <div className="sidebar-footer">
-          <Link to="/" className="store-link">
+          <a to="/" className="store-link">
             <ExternalLink size={16} />
             <span>View Live Store</span>
-          </Link>
+          </a>
         </div>
       </aside>
 
