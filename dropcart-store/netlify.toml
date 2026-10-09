@@ -1,0 +1,3 @@
+[build]
+  # Ensure the storefront's workspace dependencies (vite, etc.) are linked before building
+  command = "pnpm install --frozen-lockfile=false --filter @workspace/dropcart-store... && pnpm --filter @workspace/dropcart-store... run build"
