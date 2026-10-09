@@ -1,0 +1,4 @@
+# Proxy API calls to the backend on Render (same rules as vercel.json, which Netlify ignores)
+/api/*  https://buydo.onrender.com/api/:splat  200!
+# SPA fallback so client-side routes like /admin load index.html
+/*      /index.html                            200
