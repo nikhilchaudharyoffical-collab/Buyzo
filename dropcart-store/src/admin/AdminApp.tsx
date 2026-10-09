@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useAdminCreateProduct,
-  useAdminDeleteProduct,
-  useGetAdminAnalytics,
-  useGetAdminOrders,
-  useGetAdminProducts,
-  useAdminUpdateOrder,
-  useAdminUpdateProduct,
+  useCreateProduct,
+  useDeleteProduct,
+  useGetAnalytics,
+  useGetOrders,
+  useGetProducts,
+  useUpdateOrder,
+  useUpdateProduct,
 } from "@workspace/api-client-react";
 import type { Order, OrderStatus, Product } from "@workspace/api-client-react";
 import {
@@ -65,43 +65,46 @@ export const AdminApp: React.FC = () => {
   const [formFeatured, setFormFeatured] = useState(false);
 
   // Queries
-  const { data: analytics, isLoading: analyticsLoading } = useGetAdminAnalytics();
-const { data: productsData, isLoading: productsLoading } = useGetAdminProducts();
-const { data: ordersData, isLoading: ordersLoading } = useGetAdminOrders();
-  // Mutations
-  const createProduct = useAdminCreateProduct({
-    mutation: {
-      onSuccess: () => {
-        queryClient.invalidateQueries();
-        closeProductModal();
-      },
-    },
-  });
+  // Queries
+const { data: analytics, isLoading: analyticsLoading } = useGetAnalytics();
+const { data: productsData, isLoading: productsLoading } = useGetProducts();
+const { data: ordersData, isLoading: ordersLoading } = useGetOrders();
 
-  const updateProduct = useAdminUpdateProduct({
-    mutation: {
-      onSuccess: () => {
-        queryClient.invalidateQueries();
-        closeProductModal();
-      },
+// Mutations
+const createProduct = useCreateProduct({
+  mutation: {
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+      closeProductModal();
     },
-  });
+  },
+});
 
-  const deleteProduct = useAdminDeleteProduct({
-    mutation: {
-      onSuccess: () => {
-        queryClient.invalidateQueries();
-      },
+const updateProduct = useUpdateProduct({
+  mutation: {
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+      closeProductModal();
     },
-  });
+  },
+});
 
-  const updateOrder = useAdminUpdateOrder({
-    mutation: {
-      onSuccess: () => {
-        queryClient.invalidateQueries();
-      },
+const deleteProduct = useDeleteProduct({
+  mutation: {
+    onSuccess: () => {
+      queryClient.invalidateQueries();
     },
-  });
+  },
+});
+
+const updateOrder = useUpdateOrder({
+  mutation: {
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+    },
+  },
+});
+  
 
   const products = productsData || [];
   const orders = ordersData || [];
