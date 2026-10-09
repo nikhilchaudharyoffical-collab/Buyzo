@@ -253,7 +253,7 @@ function PurchaseModal({
               <div className="success-offers">
                 <span className="success-offers-title">Offers you unlocked</span>
                 <div className="success-offer-row"><Percent size={14} /><span>1.5% UPI discount applied</span><strong>−{money(upiDiscount)}</strong></div>
-                <div className="success-offer-row"><Truck size={14} /><span>Fast-track delivery</span><strong>5 days</strong></div>
+                <div className="success-offer-row"><Truck size={14} /><span>Fast-trackk delivery</span><strong>5 days</strong></div>
                 <div className="success-offer-row"><Gift size={14} /><span>Cashback credited soon</span><strong>₹50</strong></div>
               </div>
             )}
