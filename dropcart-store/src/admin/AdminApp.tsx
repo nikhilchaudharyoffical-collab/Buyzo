@@ -27,7 +27,7 @@ import {
   Search,
   ShoppingBag,
   Store,
-  Trash2,,
+  Trash2,
   TrendingUp,
   XCircle,
 } from "lucide-react";
