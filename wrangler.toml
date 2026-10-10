@@ -1,5 +1,9 @@
 name = "buydo-store"
+main = "worker.js"
 compatibility_date = "2024-01-01"
 
 [assets]
 directory = "./dropcart-store/dist"
+not_found_handling = "single-page-application"
+# /api/* pehle Worker se guzarega (Render ko forward), baaki seedha static files
+run_worker_first = ["/api/*"]
