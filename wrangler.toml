@@ -1,0 +1,19 @@
+name = "buydo-store"
+compatibility_date = "2024-01-01"
+
+# Build settings — yahan define karo, dashboard mein nahi
+[build]
+command = "pnpm install && cd dropcart-store && pnpm build"
+cwd = "."
+output_dir = "dropcart-store/dist"
+
+# Redirects — API proxy + SPA fallback
+[[redirects]]
+from = "/api/*"
+to = "https://buyzo-backend.onrender.com/api/:splat"
+status = 200
+
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
