@@ -63,6 +63,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { AdminApp as BuyDoAdmin } from "@/admin/AdminApp";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { UpiPaymentCard } from "@/components/upi-payment-card";
 
 const queryClient = new QueryClient();
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -260,6 +261,9 @@ function PurchaseModal({
   const [contact, setContact] = useState("");
   const [address, setAddress] = useState("");
   const [confirmed, setConfirmed] = useState<Order | null>(null);
+  // UPI: the order is created first (so it has a real order ID for the payment note), then the pay card opens on top.
+  const [pendingUpi, setPendingUpi] = useState<Order | null>(null);
+  const [upiOpen, setUpiOpen] = useState(false);
   const [justSelected, setJustSelected] = useState<OrderInputPaymentMethod | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const createOrder = useCreateOrder();
@@ -287,6 +291,17 @@ function PurchaseModal({
   };
 
   const placeOrder = () => {
+    // Re-opening the pay card for the same unpaid UPI order must not create a duplicate order.
+    if (
+      isUpi && pendingUpi &&
+      pendingUpi.quantity === quantity &&
+      pendingUpi.customerName === name.trim() &&
+      pendingUpi.customerContact === contact.trim() &&
+      pendingUpi.address === address.trim()
+    ) {
+      setUpiOpen(true);
+      return;
+    }
     createOrder.mutate(
       {
         data: {
@@ -304,7 +319,12 @@ function PurchaseModal({
       {
         onSuccess: (order) => {
           trackEvent.mutate({ data: { type: "buy", productId: product.id } });
-          setConfirmed(order);
+          if (order.paymentMethod === OrderInputPaymentMethod.UPI) {
+            setPendingUpi(order);
+            setUpiOpen(true);
+          } else {
+            setConfirmed(order);
+          }
         },
       },
     );
@@ -333,6 +353,7 @@ function PurchaseModal({
   const confirmedUpi = confirmed?.paymentMethod === OrderInputPaymentMethod.UPI;
 
   return (
+    <>
     <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <div ref={modalRef} className={`purchase-modal ${confirmed ? "is-confirmed" : ""}`}>
         <button className="modal-close" onClick={onClose} aria-label="Close checkout"><X size={18} /></button>
@@ -450,6 +471,14 @@ function PurchaseModal({
         )}
       </div>
     </div>
+    {upiOpen && pendingUpi && !confirmed && (
+      <UpiPaymentCard
+        order={pendingUpi}
+        onCancel={() => setUpiOpen(false)}
+        onPaid={() => { setUpiOpen(false); setConfirmed(pendingUpi); }}
+      />
+    )}
+    </>
   );
 }
 
