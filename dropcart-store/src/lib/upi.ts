@@ -5,8 +5,12 @@ export const UPI_VPA = "devesh.473@ptyes";
 export const UPI_PAYEE_NAME = "BuyDo";
 export const UPI_WINDOW_SECONDS = 7 * 60; // payment window, starts when the payment card opens
 
-/** Note that travels with the payment so the server can match it to the order later. */
-export const upiNote = (orderId: string) => `This is Order ID ${orderId}`;
+/**
+ * Note that travels with the payment so the server can match it to the order later.
+ * Kept to the bare order ID on purpose: UPI apps cut long notes (some at ~30 chars) and
+ * mangle spaces / URL-encoding, so a short note with no spaces shows up complete more often.
+ */
+export const upiNote = (orderId: string) => orderId;
 
 const query = (orderId: string, amount: number) =>
   [
