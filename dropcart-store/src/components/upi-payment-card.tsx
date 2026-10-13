@@ -1,11 +1,33 @@
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
-import { Clock3, RefreshCcw, ShieldCheck, Smartphone } from "lucide-react";
+import { Check, Clock3, Copy, RefreshCcw, Smartphone } from "lucide-react";
 import type { Order } from "@workspace/api-client-react";
 import { qrMatrix } from "@/lib/qr";
-import { UPI_PAYEE_NAME, UPI_VPA, UPI_WINDOW_SECONDS, upiLinks, upiNote } from "@/lib/upi";
+import { UPI_PAYEE_NAME, UPI_WINDOW_SECONDS, upiLinks, upiNote } from "@/lib/upi";
 
 const money = (value: number) => `₹${value.toLocaleString("en-IN")}`;
 const isPhone = () => typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // Fallback for browsers/contexts without the async clipboard API
+    try {
+      const field = document.createElement("textarea");
+      field.value = text;
+      field.style.position = "fixed";
+      field.style.opacity = "0";
+      document.body.appendChild(field);
+      field.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(field);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
 
 function UpiQr({ value }: { value: string }) {
   const { path, size } = useMemo(() => {
@@ -54,6 +76,7 @@ export function UpiPaymentCard({
   const [endsAt, setEndsAt] = useState(() => Date.now() + UPI_WINDOW_SECONDS * 1000);
   const [now, setNow] = useState(() => Date.now());
   const [hint, setHint] = useState("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 500);
@@ -68,11 +91,19 @@ export function UpiPaymentCard({
 
   // Amount comes from the order the server created, and is fixed inside the links.
   const links = useMemo(() => upiLinks(order.id, order.total), [order.id, order.total]);
+  const note = upiNote(order.id);
 
   const openApp = (event: MouseEvent<HTMLAnchorElement>) => {
     if (!isPhone()) {
       event.preventDefault();
       setHint("App buttons work on your phone. On this device, scan the QR code with your phone's UPI app.");
+    }
+  };
+
+  const copyNote = async () => {
+    if (await copyText(note)) {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
     }
   };
 
@@ -88,7 +119,7 @@ export function UpiPaymentCard({
         <div className="upi-top">
           <span className="eyebrow">Pay with UPI</span>
           <span className={`upi-timer ${remaining <= 60 ? "low" : ""} ${expired ? "expired" : ""}`}>
-            <Clock3 size={13} /> {expired ? "Time up" : `${mm}:${ss}`}
+            <Clock3 size={15} /> {expired ? "Time up" : `${mm}:${ss}`}
           </span>
         </div>
 
@@ -126,17 +157,27 @@ export function UpiPaymentCard({
             {hint && <p className="upi-hint">{hint}</p>}
 
             <dl className="upi-details">
-              <div><dt>Paying to</dt><dd>{UPI_PAYEE_NAME} · {UPI_VPA}</dd></div>
-              <div><dt>Note (auto-filled)</dt><dd>{upiNote(order.id)}</dd></div>
+              <div><dt>Paying to</dt><dd>{UPI_PAYEE_NAME}</dd></div>
+              <div>
+                <dt>Note</dt>
+                <dd className="upi-note">
+                  <span>{note}</span>
+                  <button type="button" className="upi-copy" onClick={copyNote} aria-label="Copy note">
+                    {copied ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
+                  </button>
+                </dd>
+              </div>
             </dl>
-            <p className="upi-secure"><ShieldCheck size={13} /> Amount and note are filled in for you. Please don't change them in your UPI app.</p>
+            <p className="upi-secure">Amount and note are pre-filled. If your UPI app doesn't show the note, tap Copy and paste it in the note field.</p>
 
             <div className="upi-wait"><span className="upi-pulse" /> Waiting for your payment...</div>
-            <button type="button" className="secondary-button wide" onClick={onPaid}>I've completed the payment</button>
           </>
         )}
 
-        <button type="button" className="upi-cancel" onClick={onCancel}>Cancel payment</button>
+        <div className="upi-actions">
+          {!expired && <button type="button" className="upi-paid" onClick={onPaid}>I've paid</button>}
+          <button type="button" className="upi-cancel" onClick={onCancel}>Cancel payment</button>
+        </div>
       </div>
     </div>
   );
