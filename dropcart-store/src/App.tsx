@@ -9,7 +9,6 @@ import {
   ChevronRight,
   CircleUserRound,
   Clock3,
-  CreditCard,
   Eye,
   Heart,
   ImagePlus,
@@ -64,6 +63,7 @@ import NotFound from "@/pages/not-found";
 import { AdminApp as BuyDoAdmin } from "@/admin/AdminApp";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { UpiPaymentCard } from "@/components/upi-payment-card";
+import { PayIcon } from "@/components/pay-icons";
 
 const queryClient = new QueryClient();
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -375,7 +375,7 @@ function PurchaseModal({
             <div className="success-delivery"><Truck size={19} /><span>Arriving by <strong>{formatDate(confirmed.deliveryDate)}</strong></span></div>
 
             <div className={`confirm-pay ${confirmedUpi ? "upi" : "cod"}`}>
-              <span className="confirm-pay-icon">{confirmedUpi ? <CreditCard size={18} /> : <Package size={18} />}</span>
+              <span className="confirm-pay-icon">{confirmedUpi ? <PayIcon brand="upi" size={22} /> : <Package size={18} />}</span>
               <div>
                 <strong>{confirmedUpi ? "UPI payment" : "Cash on delivery"}</strong>
                 <small>{confirmedUpi ? "Payment pending" : "Pay when your order arrives"}</small>
@@ -454,7 +454,7 @@ function PurchaseModal({
                   <span className="upi-offer-chip"><Gift size={11} /> ₹50 cashback</span>
                 </div>
                 <button type="button" className={`payment-option upi-option ${payment === OrderInputPaymentMethod.UPI ? "selected" : ""} ${justSelected === OrderInputPaymentMethod.UPI ? "just-selected" : ""}`} onClick={() => selectPayment(OrderInputPaymentMethod.UPI)}>
-                  <span className="payment-icon upi"><CreditCard size={17} /></span><span><strong>UPI payment</strong><small>Pay now — unlock the offers above</small></span>{payment === OrderInputPaymentMethod.UPI && <Check size={17} className="payment-check" />}
+                  <span className="payment-icon upi"><PayIcon brand="upi" size={24} /></span><span><strong>UPI payment</strong><small>Pay now — unlock the offers above</small></span>{payment === OrderInputPaymentMethod.UPI && <Check size={17} className="payment-check" />}
                 </button>
                 {justSelected === OrderInputPaymentMethod.UPI && (
                   <div className="offer-toast"><Sparkles size={13} fill="currentColor" /> Offers unlocked!</div>

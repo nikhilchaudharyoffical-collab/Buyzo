@@ -547,10 +547,14 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
 .upi-divider { display: flex; align-items: center; gap: 10px; margin: 10px 0 8px; color: #9a9da2; font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .upi-divider::before, .upi-divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .upi-divider span { display: inline-flex; align-items: center; gap: 5px; }
-.upi-apps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.upi-apps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
 .upi-app { display: grid; justify-items: center; gap: 4px; padding: 7px 4px; border: 1px solid #e4e5e0; border-radius: 12px; background: #fff; color: var(--ink); text-decoration: none; transition: border-color .15s, box-shadow .15s, transform .15s; }
 .upi-app:hover { border-color: var(--purple); box-shadow: 0 0 0 2px rgba(108,86,231,.1); transform: translateY(-1px); }
 .upi-app strong { font-size: 10.5px; }
+.pay-icon { display: block; object-fit: contain; border-radius: 8px; }
+.pay-icon-fallback { display: grid; place-items: center; color: #fff; font-weight: 800; letter-spacing: -.02em; }
+.upi-title { display: inline-flex; align-items: center; gap: 6px; }
+.upi-app-plus { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; border: 1.5px dashed #b9bbc4; color: var(--purple); background: #f6f5ff; }
 .upi-app-badge { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 800; letter-spacing: -.02em; }
 .upi-hint { margin: 8px 0 0; font-size: 10px; line-height: 1.45; color: #9a6a10; background: #fff7e6; border-radius: 9px; padding: 7px 9px; text-align: left; }
 .upi-details { margin: 10px 0 0; display: grid; gap: 6px; text-align: left; background: #f7f7f3; border-radius: 11px; padding: 8px 11px; }
@@ -580,12 +584,14 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
   .upi-divider { margin: 8px 0 6px; }
   .upi-app { padding: 5px 4px; gap: 3px; }
   .upi-app-badge { width: 24px; height: 24px; font-size: 10px; }
+  .upi-app-plus { width: 24px; height: 24px; }
+  .upi-app .pay-icon { width: 24px !important; height: 24px !important; }
   .upi-details { margin-top: 8px; padding: 6px 10px; }
   .upi-wait { margin: 6px 0; }
   .upi-actions button { min-height: 36px; }
 }
 @media (max-height: 560px) {
-  .upi-qr { width: 108px; height: 108px; }
+  .upi-qr { width: 100px; height: 100px; }
   .upi-amount strong { font-size: 24px; }
   .upi-qr-block p { margin-top: 4px; }
   .upi-secure { font-size: 9px; }
