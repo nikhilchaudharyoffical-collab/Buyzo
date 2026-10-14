@@ -99,8 +99,7 @@ function AppHeader({ onMenu }: { onMenu?: () => void }) {
           <Menu size={20} />
         </button>
         <button className="brand" onClick={() => navigate("/")}>
-          <span className="brand-mark"><Sparkles size={17} fill="currentColor" /></span>
-          <span>BuyDo<span className="brand-dot">.</span></span>
+          <img className="brand-logo" src={`${import.meta.env.BASE_URL}brand/logo.png`} alt="BuyDo" />
         </button>
         <div className="topbar-actions">
           <span className="trust-note"><ShieldCheck size={16} /> Secure checkout</span>
@@ -211,8 +210,8 @@ function InvoiceCard({ d }: { d: InvoiceData }) {
     <div className="invoice invoice-printable">
       <div className="invoice-head">
         <div className="invoice-brand">
-          <span className="brand-mark"><Sparkles size={15} fill="currentColor" /></span>
-          <div><strong>BuyDo<span className="brand-dot">.</span></strong><small>Order invoice</small></div>
+          <img className="invoice-logo" src={`${import.meta.env.BASE_URL}brand/logo.png`} alt="BuyDo" />
+          <div><small>Order invoice</small></div>
         </div>
         <div className="invoice-meta">
           <span className={`invoice-badge ${d.number ? "placed" : "draft"}`}>{d.number ? "Order placed" : "Draft"}</span>
@@ -649,7 +648,7 @@ function AdminWorkspace({ onLogout }: { onLogout: () => void }) {
   };
   return <div className="admin-shell">
     <aside className={`admin-sidebar ${mobileNav ? "open" : ""}`}>
-      <div className="sidebar-brand"><span className="brand-mark"><Sparkles size={17} fill="currentColor" /></span><span>BuyDo<span className="brand-dot">.</span></span><button className="icon-button sidebar-close" onClick={() => setMobileNav(false)}><X size={18} /></button></div>
+      <div className="sidebar-brand"><span className="sidebar-logo"><img src={`${import.meta.env.BASE_URL}brand/mark.png`} alt="" /></span><span>BuyDo<span className="brand-dot">.</span></span><button className="icon-button sidebar-close" onClick={() => setMobileNav(false)}><X size={18} /></button></div>
       <div className="workspace-pill"><span className="online-dot" /> Live workspace <ChevronRight size={14} /></div>
       <span className="sidebar-label">Operate</span>
       <nav className="admin-nav"><button className={activeTab === "overview" ? "active" : ""} onClick={() => nav("overview")}><LayoutDashboard size={17} /> Overview</button><button className={activeTab === "products" ? "active" : ""} onClick={() => nav("products")}><Tag size={17} /> Products <span>{products.length}</span></button><button className={activeTab === "orders" ? "active" : ""} onClick={() => nav("orders")}><ShoppingBag size={17} /> Orders <span>{orders.filter((order) => order.status === "Processing").length || ""}</span></button></nav>
@@ -696,7 +695,7 @@ function AdminAuthScreen({ onLogin }: { onLogin: () => void }) {
     }
   };
 
-  return <div className="admin-auth-screen"><div className="auth-heading"><span className="brand-mark large"><LockKeyhole size={20} /></span><span className="eyebrow">Restricted workspace</span><h1>Operator sign in</h1><p>Use your admin username and password to manage the storefront, orders, and customer signals.</p><form onSubmit={submit} className="admin-login-form"><label>Username<input required autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="Admin username" /></label><label>Password<input required type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Admin password" /></label>{error && <span className="form-error">{error}</span>}<button className="primary-button wide" disabled={pending}>{pending ? "Signing in..." : "Sign in"} <ArrowRight size={17} /></button></form><span className="login-foot"><ShieldCheck size={14} /> Protected by BuyDo admin security</span></div></div>;
+  return <div className="admin-auth-screen"><div className="auth-heading"><img className="auth-logo" src={`${import.meta.env.BASE_URL}brand/logo.png`} alt="BuyDo" /><span className="eyebrow">Restricted workspace</span><h1>Operator sign in</h1><p>Use your admin username and password to manage the storefront, orders, and customer signals.</p><form onSubmit={submit} className="admin-login-form"><label>Username<input required autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="Admin username" /></label><label>Password<input required type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Admin password" /></label>{error && <span className="form-error">{error}</span>}<button className="primary-button wide" disabled={pending}>{pending ? "Signing in..." : "Sign in"} <ArrowRight size={17} /></button></form><span className="login-foot"><ShieldCheck size={14} /> Protected by BuyDo admin security</span></div></div>;
 }
 
 function Router() {

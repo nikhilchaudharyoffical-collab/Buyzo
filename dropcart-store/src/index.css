@@ -597,3 +597,11 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
   .upi-secure { font-size: 9px; }
 }
 @media print { .upi-layer { display: none !important; } }
+
+/* BuyDo logo */
+.brand-logo { display: block; height: 34px; width: auto; }
+.invoice-logo { display: block; height: 30px; width: auto; }
+.auth-logo { display: block; height: 44px; width: auto; margin-bottom: 22px; }
+.sidebar-logo { width: 30px; height: 30px; display: grid; place-items: center; background: #fff; border-radius: 9px; padding: 3px; }
+.sidebar-logo img { width: 100%; height: 100%; object-fit: contain; }
+@media (max-width: 480px) { .brand-logo { height: 28px; } }
