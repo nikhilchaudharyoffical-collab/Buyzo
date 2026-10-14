@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
-import { Check, Clock3, Copy, RefreshCcw, Smartphone } from "lucide-react";
+import { Check, Clock3, Copy, Plus, RefreshCcw, Smartphone } from "lucide-react";
 import type { Order } from "@workspace/api-client-react";
 import { qrMatrix } from "@/lib/qr";
+import { PayIcon } from "@/components/pay-icons";
 import { UPI_PAYEE_NAME, UPI_WINDOW_SECONDS, upiLinks, upiNote } from "@/lib/upi";
 
 const money = (value: number) => `₹${value.toLocaleString("en-IN")}`;
@@ -58,9 +59,9 @@ function UpiQr({ value }: { value: string }) {
 }
 
 const APPS = [
-  { key: "phonepe", name: "PhonePe", badge: "Pe", color: "#5f259f" },
-  { key: "gpay", name: "Google Pay", badge: "G", color: "#1a73e8" },
-  { key: "paytm", name: "Paytm", badge: "Pt", color: "#00a3d9" },
+  { key: "phonepe", name: "PhonePe" },
+  { key: "gpay", name: "Google Pay" },
+  { key: "paytm", name: "Paytm" },
 ] as const;
 
 export function UpiPaymentCard({
@@ -117,7 +118,7 @@ export function UpiPaymentCard({
     <div className="modal-backdrop upi-layer" role="dialog" aria-modal="true" aria-label="Pay with UPI">
       <div className="upi-card">
         <div className="upi-top">
-          <span className="eyebrow">Pay with UPI</span>
+          <span className="eyebrow upi-title"><PayIcon brand="upi" size={18} /> Pay with UPI</span>
           <span className={`upi-timer ${remaining <= 60 ? "low" : ""} ${expired ? "expired" : ""}`}>
             <Clock3 size={15} /> {expired ? "Time up" : `${mm}:${ss}`}
           </span>
@@ -149,10 +150,14 @@ export function UpiPaymentCard({
             <div className="upi-apps">
               {APPS.map((app) => (
                 <a key={app.key} className="upi-app" href={links[app.key]} onClick={openApp}>
-                  <span className="upi-app-badge" style={{ background: app.color }}>{app.badge}</span>
+                  <PayIcon brand={app.key} size={28} />
                   <strong>{app.name}</strong>
                 </a>
               ))}
+              <a className="upi-app" href={links.generic} onClick={openApp} aria-label="Choose another UPI app installed on your phone">
+                <span className="upi-app-plus"><Plus size={16} /></span>
+                <strong>More</strong>
+              </a>
             </div>
             {hint && <p className="upi-hint">{hint}</p>}
 
