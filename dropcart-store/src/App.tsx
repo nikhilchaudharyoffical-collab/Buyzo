@@ -487,9 +487,12 @@ function ProductPage() {
   const trackEvent = useTrackAnalyticsEvent();
   const product = products?.[0];
 
+  const visitSent = useRef(false);
   useEffect(() => {
-    trackEvent.mutate({ data: { type: "visit", productId: product?.id ?? null } });
-  }, [product?.id]);
+    if (visitSent.current) return;
+    visitSent.current = true;
+    trackEvent.mutate({ data: { type: "visit", productId: null } });
+  }, []);
 
   if (isLoading) return <div className="page-loader"><div className="loader-orb" /><span>Preparing your product experience...</span></div>;
   if (isError || !product) return <div className="empty-state"><Package size={30} /><h2>Product unavailable</h2><p>This product is currently being refreshed. Please check back shortly.</p></div>;
