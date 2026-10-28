@@ -463,7 +463,7 @@ function PurchaseModal({
                     { Icon: Gift, label: "₹50 cashback" },
                   ].map(({ Icon, label }, i) => (
                     <span className="upi-offer-chip" key={label} style={{ "--i": i } as CSSProperties}>
-                      <Icon size={11} /> {label}
+                      {payment === OrderInputPaymentMethod.UPI ? <Icon size={11} /> : <LockKeyhole size={10} />} {label}
                     </span>
                   ))}
                 </div>
