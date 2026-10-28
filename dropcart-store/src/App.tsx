@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type TouchEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type TouchEvent } from "react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Route, Switch, useLocation, Router as WouterRouter } from "wouter";
 import {
@@ -278,7 +278,16 @@ function PurchaseModal({
     modalRef.current?.scrollTo({ top: 0 });
   }, [step, confirmed]);
 
+  // Plays the "offers unlocked" sequence each time UPI gets selected
+  const [unlock, setUnlock] = useState(0);
+  const [unlocking, setUnlocking] = useState(false);
   const selectPayment = (method: OrderInputPaymentMethod) => {
+    if (method === OrderInputPaymentMethod.UPI && payment !== OrderInputPaymentMethod.UPI) {
+      setUnlock((n) => n + 1);
+      setUnlocking(true);
+      window.setTimeout(() => setUnlocking(false), 2800);
+      try { navigator.vibrate?.([14, 40, 22]); } catch { /* not supported */ }
+    }
     setPayment(method);
     setJustSelected(method);
     window.setTimeout(() => setJustSelected((current) => (current === method ? null : current)), 650);
@@ -446,17 +455,32 @@ function PurchaseModal({
               <button type="button" className={`payment-option ${payment === OrderInputPaymentMethod.COD ? "selected" : ""} ${justSelected === OrderInputPaymentMethod.COD ? "just-selected" : ""}`} onClick={() => selectPayment(OrderInputPaymentMethod.COD)}>
                 <span className="payment-icon"><Package size={17} /></span><span><strong>Cash on delivery</strong><small>Pay when your order arrives</small></span>{payment === OrderInputPaymentMethod.COD && <Check size={17} className="payment-check" />}
               </button>
-              <div className="upi-card-wrap">
+              <div className={`upi-card-wrap ${payment === OrderInputPaymentMethod.UPI ? "is-unlocked" : "is-locked"} ${unlocking ? "unlocking" : ""}`}>
                 <div className="upi-offer-strip">
-                  <span className="upi-offer-chip"><Percent size={11} /> 1.5% off</span>
-                  <span className="upi-offer-chip"><Truck size={11} /> 5-day delivery</span>
-                  <span className="upi-offer-chip"><Gift size={11} /> ₹50 cashback</span>
+                  {[
+                    { Icon: Percent, label: "1.5% off" },
+                    { Icon: Truck, label: "5-day delivery" },
+                    { Icon: Gift, label: "₹50 cashback" },
+                  ].map(({ Icon, label }, i) => (
+                    <span className="upi-offer-chip" key={label} style={{ "--i": i } as CSSProperties}>
+                      {payment === OrderInputPaymentMethod.UPI ? <Icon size={11} /> : <LockKeyhole size={10} />} {label}
+                    </span>
+                  ))}
                 </div>
                 <button type="button" className={`payment-option upi-option ${payment === OrderInputPaymentMethod.UPI ? "selected" : ""} ${justSelected === OrderInputPaymentMethod.UPI ? "just-selected" : ""}`} onClick={() => selectPayment(OrderInputPaymentMethod.UPI)}>
                   <span className="payment-icon upi"><PayIcon brand="upi" size={24} /></span><span><strong>UPI payment</strong><small>Pay now — unlock the offers above</small></span>{payment === OrderInputPaymentMethod.UPI && <Check size={17} className="payment-check" />}
                 </button>
-                {justSelected === OrderInputPaymentMethod.UPI && (
-                  <div className="offer-toast"><Sparkles size={13} fill="currentColor" /> Offers unlocked!</div>
+                {unlocking && (
+                  <div key={unlock} className="unlock-fx" aria-hidden="true">
+                    <span className="unlock-ring" />
+                    <span className="unlock-ring r2" />
+                    {Array.from({ length: 16 }, (_, i) => (
+                      <i key={i} style={{ "--a": `${(i * 360) / 16}deg`, "--d": `${i % 2 ? 46 : 70}px` } as CSSProperties} />
+                    ))}
+                  </div>
+                )}
+                {unlocking && (
+                  <div key={`t${unlock}`} className="offer-toast"><Sparkles size={13} fill="currentColor" /> 3 offers unlocked</div>
                 )}
               </div>
             </div>
@@ -487,6 +511,7 @@ function ProductPage() {
   const trackEvent = useTrackAnalyticsEvent();
   const product = products?.[0];
 
+  // Count one visit per page load. (It used to re-run when the product loaded, so every visit counted twice.)
   const visitSent = useRef(false);
   useEffect(() => {
     if (visitSent.current) return;
