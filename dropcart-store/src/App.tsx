@@ -463,7 +463,7 @@ function PurchaseModal({
                     { Icon: Gift, label: "₹50 cashback" },
                   ].map(({ Icon, label }, i) => (
                     <span className="upi-offer-chip" key={label} style={{ "--i": i } as CSSProperties}>
-                      {payment === OrderInputPaymentMethod.UPI ? <Icon size={11} /> : <LockKeyhole size={10} />} {label}
+                      <Icon size={11} /> {label}
                     </span>
                   ))}
                 </div>
@@ -472,10 +472,18 @@ function PurchaseModal({
                 </button>
                 {unlocking && (
                   <div key={unlock} className="unlock-fx" aria-hidden="true">
-                    <span className="unlock-ring" />
-                    <span className="unlock-ring r2" />
-                    {Array.from({ length: 16 }, (_, i) => (
-                      <i key={i} style={{ "--a": `${(i * 360) / 16}deg`, "--d": `${i % 2 ? 46 : 70}px` } as CSSProperties} />
+                    {Array.from({ length: 18 }, (_, i) => (
+                      <i
+                        key={i}
+                        style={{
+                          "--x": `${(i * 37) % 88 + 5}%`,
+                          "--s": `${10 + ((i * 5) % 9)}px`,
+                          "--dl": `${(i * 0.085).toFixed(2)}s`,
+                          "--dur": `${(1.1 + (i % 4) * 0.2).toFixed(2)}s`,
+                          "--fall": `${64 + ((i * 13) % 46)}px`,
+                          "--rot": `${(i % 2 ? 1 : -1) * (80 + ((i * 29) % 140))}deg`,
+                        } as CSSProperties}
+                      />
                     ))}
                   </div>
                 )}
