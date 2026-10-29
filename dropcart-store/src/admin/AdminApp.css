@@ -467,3 +467,60 @@
   .bd-page-intro .bd-button { min-height: 31px; padding: 0 8px; font-size: 9px; }
   .bd-form-grid { grid-template-columns: 1fr; gap: 2px; }
 }
+
+/* ---------- Order receipt ---------- */
+.bd-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.bd-txn { display: block; margin-top: 2px; color: #17705c; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 9px; letter-spacing: .02em; }
+.bd-receipt-layer { position: fixed; z-index: 200; inset: 0; display: grid; place-items: start center; overflow-y: auto; padding: 22px 14px 30px; background: rgba(10, 25, 20, .66); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); animation: bd-fade .22s ease both; font-family: "Inter", "Avenir Next", Avenir, "Segoe UI", sans-serif; color: #17251f; }
+.bd-receipt-layer *, .bd-receipt-layer *::before, .bd-receipt-layer *::after { box-sizing: border-box; }
+.bd-receipt-layer button, .bd-receipt-layer select { font: inherit; }
+.bd-receipt-wrap { width: min(100%, 420px); display: grid; gap: 12px; animation: bd-receipt-in .45s cubic-bezier(.2, .9, .3, 1.1) both; }
+@keyframes bd-receipt-in { from { opacity: 0; transform: translateY(26px) scale(.96); } to { opacity: 1; transform: none; } }
+.bd-receipt { --tear-y: 129px; position: relative; padding: 22px 22px 20px; background: #fff; border-radius: 20px; box-shadow: 0 30px 70px rgba(0, 0, 0, .4);
+  -webkit-mask: radial-gradient(circle 10px at 0 var(--tear-y), #0000 97%, #000) , radial-gradient(circle 10px at 100% var(--tear-y), #0000 97%, #000); -webkit-mask-composite: source-in;
+  mask: radial-gradient(circle 10px at 0 var(--tear-y), #0000 97%, #000), radial-gradient(circle 10px at 100% var(--tear-y), #0000 97%, #000); mask-composite: intersect; }
+.bd-receipt-head { position: relative; height: 108px; display: grid; grid-template-columns: 1fr auto; grid-template-rows: 44px 1fr; align-items: start; padding-bottom: 8px; border-bottom: 2px dashed #cfd8d1; margin-bottom: 18px; }
+.bd-receipt-head img { height: 40px; width: auto; display: block; }
+.bd-receipt-tag { justify-self: end; align-self: center; font-size: 10px; font-weight: 800; letter-spacing: .2em; color: #6b7a72; }
+.bd-receipt-id { grid-column: 1 / -1; align-self: end; min-width: 0; display: grid; gap: 3px; }
+.bd-receipt-id strong { font-size: 14px; letter-spacing: -.01em; white-space: nowrap; }
+.bd-receipt-id small { color: #64756c; font-size: 11.5px; }
+.bd-receipt-status { position: absolute; right: 0; bottom: 8px; padding: 3px 9px; border-radius: 99px; font-size: 9.5px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: #956a1e; background: #fcf6e9; }
+.bd-receipt-status.confirmed { color: #17705c; background: #e8f4ef; }
+.bd-receipt-status.shipped { color: #3f6190; background: #eff3fa; }
+.bd-receipt-status.delivered { color: #2c754a; background: #edf6ee; }
+.bd-receipt-status.cancelled { color: #a4443c; background: #fbefed; }
+.bd-receipt-block { display: grid; gap: 3px; padding-bottom: 16px; border-bottom: 1px solid #e6ebe6; }
+.bd-receipt-label { margin-bottom: 4px; font-size: 9.5px; font-weight: 800; letter-spacing: .16em; color: #7d8b83; }
+.bd-receipt-block strong { font-size: 15.5px; }
+.bd-receipt-block a { width: fit-content; color: #17705c; font-weight: 600; font-size: 13px; text-decoration: none; }
+.bd-receipt-block p { margin: 3px 0 0; color: #4b5b53; font-size: 12.5px; line-height: 1.55; overflow-wrap: anywhere; }
+.bd-receipt-items { padding: 14px 0; border-bottom: 1px solid #e6ebe6; }
+.bd-receipt-row { display: grid; grid-template-columns: 1fr 44px auto; gap: 8px; align-items: baseline; font-size: 13.5px; }
+.bd-receipt-row.head { margin-bottom: 8px; font-size: 9.5px; font-weight: 800; letter-spacing: .16em; color: #7d8b83; }
+.bd-receipt-row span:nth-child(2) { text-align: center; }
+.bd-receipt-row > :last-child { text-align: right; }
+.bd-receipt-details { display: grid; gap: 9px; margin: 0; padding: 14px 0 6px; }
+.bd-receipt-details div { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12.5px; }
+.bd-receipt-details dt { color: #64756c; }
+.bd-receipt-details dd { margin: 0; display: inline-flex; align-items: center; gap: 7px; font-weight: 600; text-align: right; }
+.bd-receipt-details dd.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; font-weight: 700; letter-spacing: .03em; color: #0e4d3f; }
+.bd-receipt-copy { display: inline-grid; place-items: center; width: 22px; height: 22px; border: 1px solid #d7dfd8; border-radius: 6px; background: #f6f9f6; color: #3e5c50; cursor: pointer; }
+.bd-receipt-total { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding: 14px 16px; border-radius: 13px; background: #edf5f0; color: #3e5c50; font-weight: 700; }
+.bd-receipt-total strong { font-size: 24px; letter-spacing: -.03em; color: #0e4d3f; }
+.bd-receipt-foot { display: grid; gap: 3px; margin-top: 16px; text-align: center; }
+.bd-receipt-foot strong { font-size: 12.5px; color: #3e5c50; }
+.bd-receipt-foot span { font-size: 10.5px; color: #8a978f; }
+.bd-receipt-actions { display: grid; gap: 10px; padding: 12px; border-radius: 16px; background: rgba(255, 255, 255, .96); box-shadow: 0 14px 34px rgba(0, 0, 0, .28); }
+.bd-receipt-statusbox { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11px; font-weight: 700; color: #3e5c50; }
+.bd-receipt-statusbox .bd-order-status { min-width: 140px; min-height: 32px; font-size: 11px; }
+.bd-receipt-buttons { display: grid; grid-template-columns: 1.2fr 1.2fr .8fr; gap: 8px; }
+.bd-receipt-buttons .bd-button { min-height: 40px; padding: 0 8px; font-size: 11px; }
+@media print {
+  html.bd-print-receipt body * { visibility: hidden !important; }
+  html.bd-print-receipt .bd-receipt-layer, html.bd-print-receipt .bd-receipt-layer * { visibility: visible !important; }
+  html.bd-print-receipt .bd-receipt-layer { position: absolute; inset: 0; display: block; overflow: visible; padding: 0; background: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; animation: none; }
+  html.bd-print-receipt .bd-receipt-wrap { width: 100%; max-width: 440px; margin: 0 auto; animation: none; }
+  html.bd-print-receipt .bd-receipt { box-shadow: none; -webkit-mask: none; mask: none; }
+  html.bd-print-receipt .bd-receipt-actions, html.bd-print-receipt .bd-receipt-copy { display: none !important; }
+}

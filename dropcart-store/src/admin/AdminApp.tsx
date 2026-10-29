@@ -19,6 +19,7 @@ import {
   LogOut,
   Package,
   Plus,
+  Receipt,
   RefreshCw,
   Search,
   ShoppingBag,
@@ -44,6 +45,7 @@ import {
   YAxis,
 } from "recharts";
 import type { Order, OrderStatus, Product, ProductInput } from "@workspace/api-client-react";
+import { OrderReceipt } from "./OrderReceipt";
 import "./AdminApp.css";
 
 type Kpis = {
@@ -339,7 +341,7 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
 
   const matchingOrders = useMemo(() => (orders.data ?? []).filter((order) => {
     const needle = search.trim().toLowerCase();
-    return !needle || [order.id, order.customerName, order.customerContact, order.productName, order.address].some((value) => value.toLowerCase().includes(needle));
+    return !needle || [order.id, order.customerName, order.customerContact, order.productName, order.address, order.transactionId ?? ""].some((value) => value.toLowerCase().includes(needle));
   }), [orders.data, search]);
   const matchingCustomers = useMemo(() => (customers.data ?? []).filter((customer) => [customer.name, customer.contact, customer.address].some((value) => value.toLowerCase().includes(search.trim().toLowerCase()))), [customers.data, search]);
 
@@ -485,21 +487,23 @@ function OrdersView({ orders, loading, error, search, setSearch, selected, setSe
   const toggle = (id: string) => setSelected(selected.includes(id) ? selected.filter((item) => item !== id) : [...selected, id]);
   return <div className="bd-content">
     <div className="bd-page-intro"><div><h2>Order fulfilment</h2><p>Customer details and status for every order in the database.</p></div><a className="bd-button secondary" href="/api/admin/export/orders.csv"><Download size={15} /> Export CSV</a></div>
-    <div className="bd-list-toolbar"><SearchField value={search} onChange={setSearch} placeholder="Search ID, customer, phone, address..." />{selected.length > 0 && <button className="bd-button danger" disabled={pending} onClick={() => window.confirm(`Delete ${selected.length} selected order(s)? This cannot be undone.`) && bulkDelete(selected)}><Trash2 size={15} />Delete selected ({selected.length})</button>}<span>{orders.length} order{orders.length === 1 ? "" : "s"}</span></div>
+    <div className="bd-list-toolbar"><SearchField value={search} onChange={setSearch} placeholder="Search ID, customer, phone, address, transaction..." />{selected.length > 0 && <button className="bd-button danger" disabled={pending} onClick={() => window.confirm(`Delete ${selected.length} selected order(s)? This cannot be undone.`) && bulkDelete(selected)}><Trash2 size={15} />Delete selected ({selected.length})</button>}<span>{orders.length} order{orders.length === 1 ? "" : "s"}</span></div>
     {loading ? <TableSkeleton rows={6} /> : error ? <div className="bd-state error">{error.message}</div> : <OrderTable rows={orders} selected={selected} onToggle={toggle} onStatus={updateStatus} onDelete={(id) => window.confirm("Permanently delete this order?") && deleteOrder(id)} pending={pending} />}
   </div>;
 }
 
 function OrderTable({ rows, compact = false, selected = [], onToggle, onStatus, onDelete, pending = false }: { rows: Order[]; compact?: boolean; selected?: string[]; onToggle?: (id: string) => void; onStatus?: (variables: { id: string; status: OrderStatus }) => void; onDelete?: (id: string) => void; pending?: boolean }) {
+  const [receiptId, setReceiptId] = useState<string | null>(null);
+  const receiptOrder = receiptId ? rows.find((order) => order.id === receiptId) : undefined;
   if (!rows.length) return <EmptyState label="No orders recorded yet" />;
-  return <div className="bd-table-wrap"><table className="bd-table"><thead><tr>{!compact && onToggle && <th><span className="sr-only">Select</span></th>}<th>Order</th><th>Customer</th><th>Product</th><th>Total</th><th>Status</th>{!compact && <th aria-label="Actions" />}</tr></thead><tbody>{rows.map((order) => <tr key={order.id}>
+  return <div className="bd-table-wrap">{receiptOrder && <OrderReceipt order={receiptOrder} onClose={() => setReceiptId(null)} onStatus={onStatus} pending={pending} />}<table className="bd-table"><thead><tr>{!compact && onToggle && <th><span className="sr-only">Select</span></th>}<th>Order</th><th>Customer</th><th>Product</th><th>Total</th><th>Status</th><th aria-label="Actions" /></tr></thead><tbody>{rows.map((order) => <tr key={order.id}>
     {!compact && onToggle && <td><input className="bd-check" type="checkbox" checked={selected.includes(order.id)} onChange={() => onToggle(order.id)} aria-label={`Select order ${order.id}`} /></td>}
     <td><strong>#{order.id}</strong><small>{dateTime(order.createdAt)}</small></td>
-    <td><strong>{order.customerName}</strong><small>{order.customerContact}</small><details className="bd-address"><summary>Delivery address</summary><span>{order.address}</span></details></td>
-    <td><strong>{order.productName}</strong><small>{order.quantity} unit{order.quantity === 1 ? "" : "s"} · {order.paymentMethod}</small></td>
+    <td><strong>{order.customerName}</strong><small>{order.customerContact}</small></td>
+    <td><strong>{order.productName}</strong><small>{order.quantity} unit{order.quantity === 1 ? "" : "s"} · {order.paymentMethod}</small>{order.transactionId && <small className="bd-txn">Txn {order.transactionId}</small>}</td>
     <td><strong>{currency(order.total)}</strong><small>Delivery {dateOnly(order.deliveryDate)}</small></td>
     <td>{onStatus ? <select className={`bd-order-status ${order.status.toLowerCase()}`} value={order.status} disabled={pending} onChange={(event) => onStatus({ id: order.id, status: event.target.value as OrderStatus })}><option>Processing</option><option>Confirmed</option><option>Shipped</option><option>Delivered</option><option>Cancelled</option></select> : <span className={`bd-status-pill ${order.status.toLowerCase()}`}>{order.status}</span>}</td>
-    {!compact && <td>{onDelete && <button className="bd-icon-button subtle-danger" onClick={() => onDelete(order.id)} disabled={pending} aria-label={`Delete order ${order.id}`} title="Delete order"><Trash2 size={15} /></button>}</td>}
+    <td><div className="bd-row-actions"><button className="bd-button secondary compact" onClick={() => setReceiptId(order.id)} aria-label={`Open receipt for order ${order.id}`}><Receipt size={14} /> Receipt</button>{!compact && onDelete && <button className="bd-icon-button subtle-danger" onClick={() => onDelete(order.id)} disabled={pending} aria-label={`Delete order ${order.id}`} title="Delete order"><Trash2 size={15} /></button>}</div></td>
   </tr>)}</tbody></table></div>;
 }
 
