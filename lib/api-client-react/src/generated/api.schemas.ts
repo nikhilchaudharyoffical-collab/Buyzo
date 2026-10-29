@@ -103,6 +103,8 @@ export interface Order {
   customerName: string;
   customerContact: string;
   address: string;
+  /** UPI orders only: the payment reference that goes in the UPI note. */
+  transactionId?: string | null;
 }
 
 export type OrderInputPaymentMethod = typeof OrderInputPaymentMethod[keyof typeof OrderInputPaymentMethod];
