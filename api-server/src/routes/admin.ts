@@ -314,8 +314,8 @@ router.post("/data/purge", async (req, res) => {
 router.get("/export/orders.csv", async (_req, res) => {
   const rows = await db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt));
   const esc = (v: unknown) => `"${String(v instanceof Date ? v.toISOString() : v).replaceAll('"', '""')}"`;
-  const head = ["Order ID", "Placed at", "Status", "Customer", "Contact", "Address", "Product", "Qty", "Payment", "Total", "Delivery date"];
-  const lines = rows.map((o) => [o.id, o.createdAt, o.status, o.customerName, o.customerContact, o.address, o.productName, o.quantity, o.paymentMethod, o.total, o.deliveryDate].map(esc).join(","));
+  const head = ["Order ID", "Placed at", "Status", "Customer", "Contact", "Address", "Product", "Qty", "Payment", "Transaction ID", "Total", "Delivery date"];
+  const lines = rows.map((o) => [o.id, o.createdAt, o.status, o.customerName, o.customerContact, o.address, o.productName, o.quantity, o.paymentMethod, o.transactionId ?? "", o.total, o.deliveryDate].map(esc).join(","));
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="buydo-orders-${istDay(new Date())}.csv"`);
   res.send("\uFEFF" + [head.map(esc).join(","), ...lines].join("\n"));

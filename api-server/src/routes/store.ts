@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { desc, eq, sql } from "drizzle-orm";
@@ -170,13 +170,25 @@ const toOrder = (row: OrderRow): Order => ({
   customerName: row.customerName,
   customerContact: row.customerContact,
   address: row.address,
+  transactionId: row.transactionId ?? null,
 });
+
+// Payment reference for UPI orders, e.g. BDK7Q2M9XW4T. No 0/O/1/I so it is easy to read out and type.
+const TXN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const newTransactionId = () => "BD" + Array.from(randomBytes(10), (b) => TXN_ALPHABET[b % 32]).join("");
 
 /**
  * Seed only a minimum catalog item and zeroed summary on an empty database.
  * Orders and visits are never fabricated during initialization.
  */
 export const initializeStore = async (): Promise<void> => {
+  // Adds the transaction_id column on existing databases by itself, so no manual migration is needed.
+  try {
+    await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS transaction_id text`);
+    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS orders_transaction_id_key ON orders (transaction_id)`);
+  } catch (error) {
+    console.warn("Could not prepare orders.transaction_id", error);
+  }
   const [existingAnalytics] = await db
     .select({ id: analyticsTable.id })
     .from(analyticsTable)
@@ -335,6 +347,7 @@ router.post("/orders", rateLimit("orders", 10, 10 * 60_000), async (req, res) =>
           deliveryDate: new Date(now.getTime() + (isUpi ? 5 : 10) * DAY_MS),
           status: "Processing",
           createdAt: now,
+          transactionId: isUpi ? newTransactionId() : null,
         })
         .returning();
       return createdOrder;
