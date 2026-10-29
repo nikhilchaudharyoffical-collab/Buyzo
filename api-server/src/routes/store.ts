@@ -362,6 +362,35 @@ router.post("/orders", rateLimit("orders", 10, 10 * 60_000), async (req, res) =>
   }
 });
 
+// Customer backs out of an unpaid UPI order from the pay card: release the reserved stock exactly once.
+router.post("/orders/:orderId/cancel", rateLimit("order-cancel", 20, 10 * 60_000), async (req, res) => {
+  const orderId = String(req.params.orderId ?? "");
+  const transactionId = typeof req.body?.transactionId === "string" ? req.body.transactionId : "";
+  if (!orderId || !transactionId) {
+    res.status(400).json({ error: "Invalid cancel request" });
+    return;
+  }
+  try {
+    const row = await db.transaction(async (tx) => {
+      const [current] = await tx.select().from(ordersTable).where(eq(ordersTable.id, orderId)).for("update");
+      if (!current || current.transactionId !== transactionId) throw new OrderError(404, "Order not found");
+      if (current.paymentMethod !== "UPI") throw new OrderError(409, "Only unpaid UPI orders can be cancelled here");
+      if (current.status === "Cancelled") return current; // already released, never restock twice
+      if (current.status !== "Processing") throw new OrderError(409, "This order can no longer be cancelled");
+      await tx.update(productsTable).set({ stock: sql`${productsTable.stock} + ${current.quantity}` }).where(eq(productsTable.id, current.productId));
+      const [updated] = await tx.update(ordersTable).set({ status: "Cancelled" }).where(eq(ordersTable.id, current.id)).returning();
+      return updated;
+    });
+    res.json(toOrder(row));
+  } catch (error) {
+    if (error instanceof OrderError) {
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
+});
+
 router.patch("/orders/:orderId", requireAdminAuth, async (req, res) => {
   const params = UpdateOrderParams.safeParse(req.params);
   const body = UpdateOrderBody.safeParse(req.body);
