@@ -21,4 +21,5 @@ export interface Order {
   customerName: string;
   customerContact: string;
   address: string;
+  transactionId?: string | null;
 }
