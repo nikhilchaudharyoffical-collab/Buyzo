@@ -5,6 +5,7 @@ import {
   real,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export type AnalyticsDay = {
@@ -46,7 +47,9 @@ export const ordersTable = pgTable("orders", {
   customerName: text("customer_name").notNull(),
   customerContact: text("customer_contact").notNull(),
   address: text("address").notNull(),
-});
+  // Payment reference that travels in the UPI note (UPI orders only). Separate from the order ID.
+  transactionId: text("transaction_id"),
+}, (table) => [uniqueIndex("orders_transaction_id_key").on(table.transactionId)]);
 
 export const analyticsTable = pgTable("analytics", {
   id: text("id").primaryKey(),
