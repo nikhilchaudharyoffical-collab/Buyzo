@@ -56,6 +56,7 @@ import {
   getGetAnalyticsSummaryQueryKey,
   getListOrdersQueryKey,
   getListProductsQueryKey,
+  customFetch,
 } from "@workspace/api-client-react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -505,7 +506,15 @@ function PurchaseModal({
     {upiOpen && pendingUpi && !confirmed && (
       <UpiPaymentCard
         order={pendingUpi}
-        onCancel={() => setUpiOpen(false)}
+        onCancel={() => {
+          const order = pendingUpi;
+          setUpiOpen(false);
+          setPendingUpi(null); // next attempt creates a fresh order (stock was released)
+          customFetch(`/api/orders/${order.id}/cancel`, {
+            method: "POST",
+            body: JSON.stringify({ transactionId: order.transactionId }),
+          }).catch(() => { /* best effort; admin can still cancel to restock */ });
+        }}
         onPaid={() => { setUpiOpen(false); setConfirmed(pendingUpi); }}
       />
     )}

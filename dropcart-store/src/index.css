@@ -581,8 +581,8 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
 .upi-app:hover { border-color: rgba(58,185,143,.7); background: rgba(255,255,255,.11); transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,.3), 0 0 0 1px rgba(58,185,143,.25); }
 .upi-app:active { transform: scale(.95); }
 .upi-app strong { font-size: 10.5px; font-weight: 700; color: rgba(255,255,255,.9); white-space: nowrap; }
-.upi-app-plate { width: 50px; height: 50px; border-radius: 15px; background: #fff; display: grid; place-items: center; box-shadow: 0 6px 14px rgba(0,0,0,.28); }
-.upi-app-plate .pay-icon { width: 40px !important; height: 40px !important; border-radius: 11px; }
+.upi-app-plate { width: 50px; height: 50px; border-radius: 15px; background: #fff; display: grid; place-items: center; overflow: hidden; padding: 0; box-shadow: 0 6px 14px rgba(0,0,0,.28); }
+.upi-app-plate .pay-icon { width: 100% !important; height: 100% !important; border-radius: 0; object-fit: cover; }
 .upi-app-plate.upi-app-plus { background: rgba(255,255,255,.08); border: 1.5px dashed rgba(255,255,255,.4); box-shadow: none; color: #fff; }
 .pay-icon { display: block; object-fit: contain; border-radius: 8px; }
 .pay-icon-fallback { display: grid; place-items: center; color: #fff; font-weight: 800; letter-spacing: -.02em; }
@@ -644,7 +644,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
   .upi-divider { margin: 9px 0 7px; }
   .upi-app { padding: 7px 2px 6px; gap: 4px; border-radius: 14px; }
   .upi-app-plate { width: 42px; height: 42px; border-radius: 13px; }
-  .upi-app-plate .pay-icon { width: 33px !important; height: 33px !important; }
+  .upi-app-plate .pay-icon { width: 100% !important; height: 100% !important; }
   .upi-details { margin-top: 9px; padding: 7px 11px; gap: 5px; }
   .upi-secure { display: none; }
   .upi-wait { margin: 7px 0; }
@@ -658,7 +658,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
   .upi-qr .c { width: 12px; height: 12px; }
   .upi-qr-block p { display: none; }
   .upi-app-plate { width: 36px; height: 36px; border-radius: 11px; }
-  .upi-app-plate .pay-icon { width: 28px !important; height: 28px !important; }
+  .upi-app-plate .pay-icon { width: 100% !important; height: 100% !important; }
   .upi-details { margin-top: 7px; padding: 5px 10px; }
   .upi-wait { display: none; }
   .upi-actions button { min-height: 38px; }
