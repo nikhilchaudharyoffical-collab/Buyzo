@@ -119,8 +119,10 @@ export function UpiPaymentCard({
   const progress = (remaining / UPI_WINDOW_SECONDS) * 100;
 
   // Amount comes from the order the server created, and is fixed inside the links.
-  const links = useMemo(() => upiLinks(order.id, order.total), [order.id, order.total]);
-  const note = upiNote(order.id);
+  // The note carries the order's own transaction ID (not the order ID). Older orders fall back to the order ID.
+  const payRef = order.transactionId ?? order.id;
+  const links = useMemo(() => upiLinks(payRef, order.total), [payRef, order.total]);
+  const note = upiNote(payRef);
 
   const openApp = (event: MouseEvent<HTMLAnchorElement>) => {
     if (!isPhone()) {
