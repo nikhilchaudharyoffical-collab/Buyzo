@@ -25,6 +25,7 @@ import {
   ShoppingBag,
   Trash2,
   Users,
+  Wallet,
   X,
 } from "lucide-react";
 import {
@@ -107,7 +108,8 @@ type DatabaseOverview = {
   sizes: { name: string; bytes: number }[];
 };
 
-type AdminTab = "overview" | "orders" | "customers" | "products" | "data";
+type AdminTab = "overview" | "orders" | "payments" | "customers" | "products" | "data";
+type UnmatchedPayment = { id: string; amount: number; sender: string; text: string; postedAt: string };
 type ProductForm = ProductInput;
 type ProductNumericField = "price" | "compareAtPrice" | "stock" | "rating" | "reviewCount";
 type ProductDraft = Omit<ProductForm, ProductNumericField> & Record<ProductNumericField, string>;
@@ -307,6 +309,7 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
   const queryClient = useQueryClient();
   const analytics = useQuery({ queryKey: ["admin", "analytics", fromDate, toDate], queryFn: () => request<Analytics>(`/api/admin/analytics?from=${fromDate}&to=${toDate}`), enabled: fromDate <= toDate && toDate <= today });
   const orders = useQuery({ queryKey: ["admin", "orders"], queryFn: () => request<Order[]>("/api/orders") });
+  const payments = useQuery({ queryKey: ["admin", "payments"], queryFn: () => request<UnmatchedPayment[]>("/api/admin/payments"), refetchInterval: 20_000 });
   const customers = useQuery({ queryKey: ["admin", "customers"], queryFn: () => request<Customer[]>("/api/admin/customers") });
   const products = useQuery({ queryKey: ["admin", "products"], queryFn: () => request<Product[]>("/api/products") });
   const database = useQuery({ queryKey: ["admin", "database"], queryFn: () => request<DatabaseOverview>("/api/admin/db/overview") });
@@ -315,6 +318,14 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
   const updateStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: OrderStatus }) => request<Order>(`/api/orders/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ status }) }),
     onSuccess: () => { refresh(); setNotice("Order status updated."); },
+  });
+  const assignPayment = useMutation({
+    mutationFn: ({ id, orderId }: { id: string; orderId: string }) => request(`/api/admin/payments/${encodeURIComponent(id)}/assign`, { method: "POST", body: JSON.stringify({ orderId }) }),
+    onSuccess: () => { refresh(); setNotice("Payment assigned. The order is now confirmed."); },
+  });
+  const dismissPayment = useMutation({
+    mutationFn: (id: string) => request(`/api/admin/payments/${encodeURIComponent(id)}/dismiss`, { method: "POST" }),
+    onSuccess: () => { refresh(); setNotice("Payment dismissed."); },
   });
   const deleteOrder = useMutation({
     mutationFn: (id: string) => request(`/api/admin/orders/${encodeURIComponent(id)}`, { method: "DELETE" }),
@@ -363,6 +374,7 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
   const tabs: { id: AdminTab; label: string; icon: typeof Activity }[] = [
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "orders", label: "Orders", icon: ShoppingBag },
+    { id: "payments", label: "Payments", icon: Wallet },
     { id: "customers", label: "Customers", icon: Users },
     { id: "products", label: "Products", icon: Package },
     { id: "data", label: "Data tools", icon: Database },
@@ -373,7 +385,7 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
       <aside className="bd-rail">
         <a className="bd-admin-brand" href="/">BuyDo<span>.</span></a>
         <span className="bd-rail-label">STORE</span>
-        <nav>{tabs.map(({ id, label, icon: Icon }) => <button key={id} className={tab === id ? "active" : ""} onClick={() => { setTab(id); setSearch(""); }}><Icon size={17} />{label}{id === "orders" && (analytics.data?.pendingOrders ?? 0) > 0 && <b>{analytics.data?.pendingOrders}</b>}</button>)}</nav>
+        <nav>{tabs.map(({ id, label, icon: Icon }) => <button key={id} className={tab === id ? "active" : ""} onClick={() => { setTab(id); setSearch(""); }}><Icon size={17} />{label}{id === "orders" && (analytics.data?.pendingOrders ?? 0) > 0 && <b>{analytics.data?.pendingOrders}</b>}{id === "payments" && (payments.data?.length ?? 0) > 0 && <b>{payments.data?.length}</b>}</button>)}</nav>
         <div className="bd-rail-foot"><span className={database.isError ? "offline" : ""}><i />{database.isLoading ? "Checking database" : database.isError ? "Database unavailable" : "Database connected"}</span><a href="/">← View storefront</a></div>
       </aside>
       <main className="bd-main">
@@ -392,6 +404,7 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
         {notice && <div className="bd-notice"><Check size={15} />{notice}<button onClick={() => setNotice("")} aria-label="Dismiss"><X size={15} /></button></div>}
         {tab === "overview" && <Overview data={analytics.data} loading={analytics.isLoading} error={analytics.error} orders={orders.data ?? []} onNavigate={setTab} onRetry={() => { void analytics.refetch(); void orders.refetch(); }} />}
         {tab === "orders" && <OrdersView orders={matchingOrders} loading={orders.isLoading} error={orders.error} search={search} setSearch={setSearch} selected={selected} setSelected={setSelected} updateStatus={updateStatus.mutate} deleteOrder={deleteOrder.mutate} bulkDelete={bulkDelete.mutate} pending={updateStatus.isPending || deleteOrder.isPending || bulkDelete.isPending} />}
+        {tab === "payments" && <PaymentsView payments={payments.data ?? []} loading={payments.isLoading} error={payments.error} orders={(orders.data ?? []).filter((order) => order.paymentMethod === "UPI" && !order.paidAt && order.status === "Processing")} assign={assignPayment.mutate} dismiss={dismissPayment.mutate} pending={assignPayment.isPending || dismissPayment.isPending} actionError={(assignPayment.error ?? dismissPayment.error) as Error | null} />}
         {tab === "customers" && <CustomersView customers={matchingCustomers} loading={customers.isLoading} error={customers.error} search={search} setSearch={setSearch} />}
         {tab === "products" && <ProductsView products={products.data ?? []} loading={products.isLoading} error={products.error} saveProduct={saveProduct.mutateAsync} deleteProduct={deleteProduct.mutate} pending={saveProduct.isPending || deleteProduct.isPending} />}
         {tab === "data" && <DataTools database={database.data} loading={database.isLoading} error={database.error} purge={purge.mutateAsync} pending={purge.isPending} />}
@@ -500,11 +513,30 @@ function OrderTable({ rows, compact = false, selected = [], onToggle, onStatus, 
     {!compact && onToggle && <td><input className="bd-check" type="checkbox" checked={selected.includes(order.id)} onChange={() => onToggle(order.id)} aria-label={`Select order ${order.id}`} /></td>}
     <td><strong>#{order.id}</strong><small>{dateTime(order.createdAt)}</small></td>
     <td><strong>{order.customerName}</strong><small>{order.customerContact}</small></td>
-    <td><strong>{order.productName}</strong><small>{order.quantity} unit{order.quantity === 1 ? "" : "s"} · {order.paymentMethod}</small>{order.transactionId && <small className="bd-txn">Txn {order.transactionId}</small>}</td>
+    <td><strong>{order.productName}</strong><small>{order.quantity} unit{order.quantity === 1 ? "" : "s"} · {order.paymentMethod}</small>{order.transactionId && <small className="bd-txn">Txn {order.transactionId}</small>}{order.paymentMethod === "UPI" && <small className={order.paidAt ? "bd-paid" : "bd-unpaid"}>{order.paidAt ? `Paid ${dateTime(order.paidAt)}` : "Payment not received"}</small>}</td>
     <td><strong>{currency(order.total)}</strong><small>Delivery {dateOnly(order.deliveryDate)}</small></td>
     <td>{onStatus ? <select className={`bd-order-status ${order.status.toLowerCase()}`} value={order.status} disabled={pending} onChange={(event) => onStatus({ id: order.id, status: event.target.value as OrderStatus })}><option>Processing</option><option>Confirmed</option><option>Shipped</option><option>Delivered</option><option>Cancelled</option></select> : <span className={`bd-status-pill ${order.status.toLowerCase()}`}>{order.status}</span>}</td>
     <td><div className="bd-row-actions"><button className="bd-button secondary compact" onClick={() => setReceiptId(order.id)} aria-label={`Open receipt for order ${order.id}`}><Receipt size={14} /> Receipt</button>{!compact && onDelete && <button className="bd-icon-button subtle-danger" onClick={() => onDelete(order.id)} disabled={pending} aria-label={`Delete order ${order.id}`} title="Delete order"><Trash2 size={15} /></button>}</div></td>
   </tr>)}</tbody></table></div>;
+}
+
+function PaymentsView({ payments, loading, error, orders, assign, dismiss, pending, actionError }: { payments: UnmatchedPayment[]; loading: boolean; error: Error | null; orders: Order[]; assign: (variables: { id: string; orderId: string }) => void; dismiss: (id: string) => void; pending: boolean; actionError: Error | null }) {
+  const [choice, setChoice] = useState<Record<string, string>>({});
+  return <div className="bd-content">
+    <div className="bd-page-intro"><div><h2>Unmatched payments</h2><p>Money that reached Paytm but did not match any open UPI order (wrong amount, paid after the window, or not a store payment). Assign it to an order, or dismiss it.</p></div></div>
+    {actionError && <div className="bd-state error">{actionError.message}</div>}
+    {loading ? <ListSkeleton rows={3} /> : error ? <div className="bd-state error">{error.message}</div> : !payments.length ? <EmptyState label="No unmatched payments. Every payment found its order." /> : <div className="bd-pay-list">{payments.map((payment) => <div className="bd-pay-card" key={payment.id}>
+      <div className="bd-pay-main"><strong>{currency(payment.amount)}</strong><span>from {payment.sender || "unknown"}</span><small>{dateTime(payment.postedAt)}</small><small>{payment.text}</small></div>
+      <div className="bd-pay-actions">
+        <select value={choice[payment.id] ?? ""} onChange={(event) => setChoice({ ...choice, [payment.id]: event.target.value })}>
+          <option value="">Choose an unpaid UPI order…</option>
+          {orders.map((order) => <option key={order.id} value={order.id}>#{order.id} · {order.customerName} · {currency(order.total)}</option>)}
+        </select>
+        <button className="bd-button" disabled={pending || !choice[payment.id]} onClick={() => assign({ id: payment.id, orderId: choice[payment.id] })}><Check size={14} /> Assign</button>
+        <button className="bd-button secondary" disabled={pending} onClick={() => window.confirm("Dismiss this payment? It will leave this list.") && dismiss(payment.id)}>Dismiss</button>
+      </div>
+    </div>)}</div>}
+  </div>;
 }
 
 function CustomersView({ customers, loading, error, search, setSearch }: { customers: Customer[]; loading: boolean; error: Error | null; search: string; setSearch: (value: string) => void }) {
