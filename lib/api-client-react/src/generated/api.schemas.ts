@@ -105,6 +105,8 @@ export interface Order {
   address: string;
   /** UPI orders only: the payment reference that goes in the UPI note. */
   transactionId?: string | null;
+  /** UPI orders: when the payment was confirmed. */
+  paidAt?: string | null;
 }
 
 export type OrderInputPaymentMethod = typeof OrderInputPaymentMethod[keyof typeof OrderInputPaymentMethod];
