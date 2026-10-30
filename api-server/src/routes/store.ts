@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Router, type IRouter } from "express";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, lte, sql } from "drizzle-orm";
 import {
   analyticsTable,
   analyticsDailyTable,
@@ -171,6 +171,7 @@ const toOrder = (row: OrderRow): Order => ({
   customerContact: row.customerContact,
   address: row.address,
   transactionId: row.transactionId ?? null,
+  paidAt: row.paidAt ?? null,
 });
 
 // Payment reference for UPI orders, e.g. BDK7Q2M9XW4T. No 0/O/1/I so it is easy to read out and type.
@@ -188,6 +189,25 @@ export const initializeStore = async (): Promise<void> => {
     await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS orders_transaction_id_key ON orders (transaction_id)`);
   } catch (error) {
     console.warn("Could not prepare orders.transaction_id", error);
+  }
+  // Unique-amount payment matching (see routes/payments.ts)
+  try {
+    await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payable_paise integer`);
+    await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at timestamptz`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS orders_payable_paise_idx ON orders (payable_paise)`);
+    await db.execute(sql`CREATE TABLE IF NOT EXISTS payment_events (
+      id text PRIMARY KEY,
+      amount_paise integer NOT NULL,
+      sender text NOT NULL,
+      title text NOT NULL,
+      body text NOT NULL,
+      posted_at timestamptz NOT NULL,
+      status text NOT NULL,
+      order_id text,
+      created_at timestamptz NOT NULL
+    )`);
+  } catch (error) {
+    console.warn("Could not prepare payment matching tables", error);
   }
   const [existingAnalytics] = await db
     .select({ id: analyticsTable.id })
@@ -301,6 +321,10 @@ class OrderError extends Error {
   }
 }
 const UPI_DISCOUNT_RATE = 0.015;
+const UPI_MAX_OFFSET_PAISE = 99;
+// An exact amount stays reserved this long after the order was placed (payment window + grace + quarantine),
+// so a late payment can never be mistaken for somebody else's order.
+const UPI_AMOUNT_HOLD_MS = 40 * 60_000;
 
 router.post("/orders", rateLimit("orders", 10, 10 * 60_000), async (req, res) => {
   const parsed = CreateOrderBody.safeParse(req.body);
@@ -329,8 +353,34 @@ router.post("/orders", rateLimit("orders", 10, 10 * 60_000), async (req, res) =>
       // Price, discount and delivery date are decided by the server, not the browser.
       const isUpi = (input.paymentMethod as string) === "UPI";
       const subtotal = product.price * input.quantity;
-      const total = subtotal - (isUpi ? Math.round(subtotal * UPI_DISCOUNT_RATE) : 0);
+      let total = subtotal - (isUpi ? Math.round(subtotal * UPI_DISCOUNT_RATE) : 0);
       const now = new Date();
+
+      // UPI: take 1-99 paise off so this order has its own exact amount, which is how its payment is recognised.
+      let payablePaise: number | null = null;
+      if (isUpi) {
+        const basePaise = Math.round(total * 100);
+        payablePaise = basePaise;
+        if (basePaise > 200) {
+          // One buyer at a time per base amount, so two orders can never pick the same offset.
+          await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`upi-amount:${basePaise}`}))`);
+          const taken = await tx
+            .select({ paise: ordersTable.payablePaise })
+            .from(ordersTable)
+            .where(and(
+              eq(ordersTable.paymentMethod, "UPI"),
+              gte(ordersTable.payablePaise, basePaise - UPI_MAX_OFFSET_PAISE),
+              lte(ordersTable.payablePaise, basePaise - 1),
+              gt(ordersTable.createdAt, new Date(now.getTime() - UPI_AMOUNT_HOLD_MS)),
+            ));
+          const used = new Set(taken.map((row) => row.paise));
+          const free: number[] = [];
+          for (let offset = 1; offset <= UPI_MAX_OFFSET_PAISE; offset++) if (!used.has(basePaise - offset)) free.push(offset);
+          if (!free.length) throw new OrderError(409, "Too many payments in progress right now. Please try again in a few minutes.");
+          payablePaise = basePaise - free[Math.floor(Math.random() * free.length)];
+        }
+        total = payablePaise / 100;
+      }
 
       await tx
         .update(productsTable)
@@ -348,6 +398,7 @@ router.post("/orders", rateLimit("orders", 10, 10 * 60_000), async (req, res) =>
           status: "Processing",
           createdAt: now,
           transactionId: isUpi ? newTransactionId() : null,
+          payablePaise,
         })
         .returning();
       return createdOrder;
@@ -375,6 +426,7 @@ router.post("/orders/:orderId/cancel", rateLimit("order-cancel", 20, 10 * 60_000
       const [current] = await tx.select().from(ordersTable).where(eq(ordersTable.id, orderId)).for("update");
       if (!current || current.transactionId !== transactionId) throw new OrderError(404, "Order not found");
       if (current.paymentMethod !== "UPI") throw new OrderError(409, "Only unpaid UPI orders can be cancelled here");
+      if (current.paidAt) throw new OrderError(409, "Payment was already received for this order");
       if (current.status === "Cancelled") return current; // already released, never restock twice
       if (current.status !== "Processing") throw new OrderError(409, "This order can no longer be cancelled");
       await tx.update(productsTable).set({ stock: sql`${productsTable.stock} + ${current.quantity}` }).where(eq(productsTable.id, current.productId));

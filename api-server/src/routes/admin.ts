@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { and, count, desc, eq, inArray, lt, sql } from "drizzle-orm";
-import { analyticsDailyTable, db, ordersTable, productsTable } from "@workspace/db";
+import { analyticsDailyTable, db, ordersTable, paymentEventsTable, productsTable } from "@workspace/db";
+import { markOrderPaid } from "./payments";
 import { requireAdminAuth } from "./store";
 import { DAY_MS, istDay, istHour, istLabel, istWeekday } from "../lib/time";
 
@@ -12,6 +13,43 @@ const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const round = (n: number, d = 0) => Number(n.toFixed(d));
 const shiftDay = (day: string, offset: number) =>
   new Date(Date.parse(`${day}T00:00:00.000Z`) + offset * DAY_MS).toISOString().slice(0, 10);
+
+// ================= Payments that arrived but matched no order =================
+router.get("/payments", async (_req, res) => {
+  const rows = await db.select().from(paymentEventsTable).where(eq(paymentEventsTable.status, "unmatched")).orderBy(desc(paymentEventsTable.createdAt)).limit(50);
+  res.json(rows.map((row) => ({ id: row.id, amount: row.amountPaise / 100, sender: row.sender, text: row.body, postedAt: row.postedAt })));
+});
+
+router.post("/payments/:id/dismiss", async (req, res) => {
+  const updated = await db.update(paymentEventsTable).set({ status: "dismissed" }).where(and(eq(paymentEventsTable.id, req.params.id), eq(paymentEventsTable.status, "unmatched"))).returning({ id: paymentEventsTable.id });
+  if (!updated.length) {
+    res.status(404).json({ error: "Payment not found" });
+    return;
+  }
+  res.json({ ok: true });
+});
+
+router.post("/payments/:id/assign", async (req, res) => {
+  const orderId = typeof req.body?.orderId === "string" ? req.body.orderId : "";
+  if (!orderId) {
+    res.status(400).json({ error: "Choose an order" });
+    return;
+  }
+  const outcome: { status: number; error?: string } = await db.transaction(async (tx) => {
+    const [event] = await tx.select().from(paymentEventsTable).where(eq(paymentEventsTable.id, req.params.id)).for("update");
+    if (!event || event.status !== "unmatched") return { status: 404, error: "Payment not found" };
+    const [order] = await tx.select().from(ordersTable).where(eq(ordersTable.id, orderId)).for("update");
+    if (!order || order.paymentMethod !== "UPI") return { status: 404, error: "UPI order not found" };
+    if (!(await markOrderPaid(tx, order.id))) return { status: 409, error: "This order is already paid or not in Processing. Re-open it from Orders first." };
+    await tx.update(paymentEventsTable).set({ status: "matched", orderId: order.id }).where(eq(paymentEventsTable.id, event.id));
+    return { status: 200 };
+  });
+  if (outcome.status !== 200) {
+    res.status(outcome.status).json({ error: outcome.error });
+    return;
+  }
+  res.json({ ok: true });
+});
 
 // ================= Analytics (100% computed from real data) =================
 router.get("/analytics", async (req, res) => {
