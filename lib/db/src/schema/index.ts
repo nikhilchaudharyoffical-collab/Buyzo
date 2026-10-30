@@ -49,7 +49,24 @@ export const ordersTable = pgTable("orders", {
   address: text("address").notNull(),
   // Payment reference that travels in the UPI note (UPI orders only). Separate from the order ID.
   transactionId: text("transaction_id"),
+  // UPI orders: exact amount in paise the customer must pay (total minus a unique 1-99 paise offset).
+  payablePaise: integer("payable_paise"),
+  // Set when a matching "Received" notification arrives (or an admin assigns one by hand).
+  paidAt: timestamp("paid_at", { withTimezone: true, mode: "date" }),
 }, (table) => [uniqueIndex("orders_transaction_id_key").on(table.transactionId)]);
+
+// Every "money received" notification sent by the listener app. Also the dedupe table (id = event id).
+export const paymentEventsTable = pgTable("payment_events", {
+  id: text("id").primaryKey(),
+  amountPaise: integer("amount_paise").notNull(),
+  sender: text("sender").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  postedAt: timestamp("posted_at", { withTimezone: true, mode: "date" }).notNull(),
+  status: text("status").notNull(), // matched | unmatched | dismissed
+  orderId: text("order_id"),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
+});
 
 export const analyticsTable = pgTable("analytics", {
   id: text("id").primaryKey(),
