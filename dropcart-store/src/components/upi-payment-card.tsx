@@ -94,13 +94,16 @@ export function UpiPaymentCard({
   order,
   onCancel,
   onPaid,
+  endsAt: initialEndsAt,
 }: {
   order: Order;
+  /** Set when the card is reopened after a page reload, so the timer keeps running from where it was. */
+  endsAt?: number;
   onCancel: () => void;
   onPaid: () => void;
 }) {
   // The 7 minute window starts as soon as this card opens, whichever way the customer pays.
-  const [endsAt, setEndsAt] = useState(() => Date.now() + UPI_WINDOW_SECONDS * 1000);
+  const [endsAt, setEndsAt] = useState(() => initialEndsAt ?? Date.now() + UPI_WINDOW_SECONDS * 1000);
   const [now, setNow] = useState(() => Date.now());
   const [hint, setHint] = useState("");
   const [copied, setCopied] = useState(false);
@@ -119,10 +122,9 @@ export function UpiPaymentCard({
   const progress = (remaining / UPI_WINDOW_SECONDS) * 100;
 
   // Amount comes from the order the server created, and is fixed inside the links.
-  // The note carries the order's own transaction ID (not the order ID). Older orders fall back to the order ID.
-  const payRef = order.transactionId ?? order.id;
-  const links = useMemo(() => upiLinks(payRef, order.total), [payRef, order.total]);
-  const note = upiNote(payRef);
+  // The note is a friendly fixed text. The payment is recognised by its exact amount, not by the note.
+  const links = useMemo(() => upiLinks(order.total), [order.total]);
+  const note = upiNote();
 
   const openApp = (event: MouseEvent<HTMLAnchorElement>) => {
     if (!isPhone()) {
@@ -168,7 +170,11 @@ export function UpiPaymentCard({
   };
   useEffect(() => {
     const timer = window.setInterval(() => void checkPaid(), 3000);
-    return () => window.clearInterval(timer);
+    // Browsers pause timers while the customer is in the UPI app: check right away when they come back.
+    const onVisible = () => { if (document.visibilityState === "visible") void checkPaid(); };
+    document.addEventListener("visibilitychange", onVisible);
+    void checkPaid();
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order.id, order.transactionId]);
 
