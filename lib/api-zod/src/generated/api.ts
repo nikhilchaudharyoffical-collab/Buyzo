@@ -160,7 +160,8 @@ export const ListOrdersResponseItem = zod.object({
   "customerName": zod.string(),
   "customerContact": zod.string(),
   "address": zod.string(),
-  "transactionId": zod.string().nullish()
+  "transactionId": zod.string().nullish(),
+  "paidAt": zod.coerce.date().nullish()
 })
 export const ListOrdersResponse = zod.array(ListOrdersResponseItem)
 
@@ -203,7 +204,8 @@ export const CreateOrderResponse = zod.object({
   "customerName": zod.string(),
   "customerContact": zod.string(),
   "address": zod.string(),
-  "transactionId": zod.string().nullish()
+  "transactionId": zod.string().nullish(),
+  "paidAt": zod.coerce.date().nullish()
 })
 
 
@@ -231,7 +233,8 @@ export const UpdateOrderResponse = zod.object({
   "customerName": zod.string(),
   "customerContact": zod.string(),
   "address": zod.string(),
-  "transactionId": zod.string().nullish()
+  "transactionId": zod.string().nullish(),
+  "paidAt": zod.coerce.date().nullish()
 })
 
 
