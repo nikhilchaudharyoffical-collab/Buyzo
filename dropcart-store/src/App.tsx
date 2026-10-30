@@ -69,7 +69,7 @@ import { PayIcon } from "@/components/pay-icons";
 const queryClient = new QueryClient();
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const money = (value: number) => `₹${value.toLocaleString("en-IN")}`;
+const money = (value: number) => `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 const formatDate = (date: string | Date) =>
   new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" }).format(new Date(date));
 const getDeliveryDate = (days: number) => {
@@ -197,6 +197,7 @@ type InvoiceData = {
   quantity: number;
   subtotal: number;
   discount: number;
+  rounding?: number; // UPI: unique paise taken off so the payment can be recognised
   total: number;
   payment: OrderInputPaymentMethod;
   deliveryDate: string | Date;
@@ -236,6 +237,7 @@ function InvoiceCard({ d }: { d: InvoiceData }) {
       <dl className="invoice-totals">
         <div><dt>Subtotal</dt><dd>{money(d.subtotal)}</dd></div>
         {d.discount > 0 && <div className="save"><dt>UPI discount (1.5%)</dt><dd>−{money(d.discount)}</dd></div>}
+        {(d.rounding ?? 0) > 0 && <div className="save"><dt>UPI exact-amount adjustment</dt><dd>−{money(d.rounding!)}</dd></div>}
         <div><dt>Delivery</dt><dd className="free">Free</dd></div>
         <div className="grand"><dt>Total payable</dt><dd>{money(d.total)}</dd></div>
       </dl>
@@ -353,7 +355,13 @@ function PurchaseModal({
         product,
         quantity: confirmed.quantity,
         subtotal: product.price * confirmed.quantity,
-        discount: Math.max(0, product.price * confirmed.quantity - confirmed.total),
+        ...(() => {
+          const gross = product.price * confirmed.quantity;
+          const isUpiOrder = confirmed.paymentMethod === OrderInputPaymentMethod.UPI;
+          const discount = isUpiOrder ? Math.round(gross * UPI_DISCOUNT_RATE) : Math.max(0, gross - confirmed.total);
+          const rounding = Math.max(0, Math.round((gross - discount - confirmed.total) * 100) / 100);
+          return { discount, rounding };
+        })(),
         total: confirmed.total,
         payment: confirmed.paymentMethod as OrderInputPaymentMethod,
         deliveryDate: confirmed.deliveryDate,
