@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type CSSProperties, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { Check, Clock3, Copy, Plus, RefreshCcw, Smartphone } from "lucide-react";
-import type { Order } from "@workspace/api-client-react";
+import { customFetch, type Order } from "@workspace/api-client-react";
 import { qrMatrix } from "@/lib/qr";
 import { PayIcon } from "@/components/pay-icons";
 import { UPI_PAYEE_NAME, UPI_WINDOW_SECONDS, upiLinks, upiNote } from "@/lib/upi";
@@ -19,7 +19,7 @@ function useCountUp(target: number, ms = 900) {
     const start = performance.now();
     const tick = (now: number) => {
       const p = Math.min(1, (now - start) / ms);
-      setValue(p < 1 ? Math.round(target * (1 - Math.pow(1 - p, 3))) : target);
+      setValue(p < 1 ? Math.round(target * (1 - Math.pow(1 - p, 3)) * 100) / 100 : target);
       if (p < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -31,7 +31,7 @@ function useCountUp(target: number, ms = 900) {
 const RING_R = 21;
 const RING_C = 2 * Math.PI * RING_R;
 
-const money = (value: number) => `₹${value.toLocaleString("en-IN")}`;
+const money = (value: number) => `₹${value.toLocaleString("en-IN", { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })}`;
 const isPhone = () => typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 async function copyText(text: string): Promise<boolean> {
@@ -144,6 +144,34 @@ export function UpiPaymentCard({
     window.setTimeout(onPaid, reducedMotion() ? 300 : 1700);
   };
 
+  // The money is confirmed by the server (it sees the Paytm "received" notification). Ask every few seconds.
+  const [checking, setChecking] = useState(false);
+  const paidRef = useRef(false);
+  const checkPaid = async (manual = false) => {
+    if (paidRef.current || !order.transactionId) return;
+    if (manual) setChecking(true);
+    try {
+      const result = await customFetch<{ paid: boolean }>(
+        `/api/orders/${encodeURIComponent(order.id)}/payment-status?transactionId=${encodeURIComponent(order.transactionId)}`,
+      );
+      if (result.paid && !paidRef.current) {
+        paidRef.current = true;
+        markPaid();
+      } else if (manual && !result.paid) {
+        setHint("We haven't received your payment yet. It usually shows up within a few seconds, please keep this window open.");
+      }
+    } catch {
+      if (manual) setHint("Couldn't check right now. Please try again in a moment.");
+    } finally {
+      if (manual) setChecking(false);
+    }
+  };
+  useEffect(() => {
+    const timer = window.setInterval(() => void checkPaid(), 3000);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order.id, order.transactionId]);
+
   const restart = () => {
     setEndsAt(Date.now() + UPI_WINDOW_SECONDS * 1000);
     setNow(Date.now());
@@ -167,7 +195,7 @@ export function UpiPaymentCard({
               <path d="M20 33l8 8 17-19" />
             </svg>
             <strong>Thank you!</strong>
-            <p>Payment submitted. Placing your order...</p>
+            <p>Payment received. Placing your order...</p>
           </div>
         ) : (
           <>
@@ -249,14 +277,14 @@ export function UpiPaymentCard({
                     </dd>
                   </div>
                 </dl>
-                <p className="upi-secure">Amount and note are pre-filled. If your UPI app doesn't show the note, tap Copy and paste it in the note field.</p>
+                <p className="upi-secure">Pay the exact amount shown, down to the paise. It is pre-filled in the app and is how we recognise your payment.</p>
 
                 <div className="upi-wait upi-rise" style={rise(6)}><span className="upi-radar" /> Waiting for your payment...</div>
               </>
             )}
 
             <div className="upi-actions upi-rise" style={rise(7)}>
-              {!expired && <button type="button" className="upi-paid" onClick={markPaid}>I've paid</button>}
+              {!expired && <button type="button" className="upi-paid" disabled={checking} onClick={() => void checkPaid(true)}>{checking ? "Checking..." : "I've paid"}</button>}
               <button type="button" className="upi-cancel" onClick={onCancel}>Cancel payment</button>
             </div>
           </>
