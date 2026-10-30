@@ -258,6 +258,7 @@ components:
         customerContact: { type: string }
         address: { type: string }
         transactionId: { type: string, nullable: true }
+        paidAt: { type: string, format: date-time, nullable: true }
     OrderInput:
       type: object
       required: [productId, productName, quantity, total, paymentMethod, deliveryDate, customerName, customerContact, address]
