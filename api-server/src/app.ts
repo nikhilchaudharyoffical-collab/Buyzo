@@ -48,7 +48,8 @@ app.use(
     },
   }),
 );
-app.use(express.json());
+// Keep the exact bytes of the body: the listener app's HMAC signature is computed over them.
+app.use(express.json({ verify: (req, _res, buf) => { (req as unknown as { rawBody?: Buffer }).rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
