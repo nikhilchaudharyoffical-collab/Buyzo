@@ -61,6 +61,8 @@ import {
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
+import { clearPendingUpi, loadPendingUpi, savePendingUpi } from "@/lib/pending-upi";
+import { UPI_WINDOW_SECONDS } from "@/lib/upi";
 import { AdminApp as BuyDoAdmin } from "@/admin/AdminApp";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { UpiPaymentCard } from "@/components/upi-payment-card";
@@ -256,16 +258,19 @@ function PurchaseModal({
   product: Product;
   onClose: () => void;
 }) {
-  const [step, setStep] = useState<"details" | "payment">("details");
-  const [quantity, setQuantity] = useState(1);
-  const [payment, setPayment] = useState<OrderInputPaymentMethod>(OrderInputPaymentMethod.COD);
-  const [name, setName] = useState("");
-  const [contact, setContact] = useState("");
-  const [address, setAddress] = useState("");
+  // If the page was reloaded while a UPI payment was open, pick the unpaid order up again.
+  const [restored] = useState(() => loadPendingUpi(product.id));
+  const [step, setStep] = useState<"details" | "payment">(restored ? "payment" : "details");
+  const [quantity, setQuantity] = useState(restored?.order.quantity ?? 1);
+  const [payment, setPayment] = useState<OrderInputPaymentMethod>(restored ? OrderInputPaymentMethod.UPI : OrderInputPaymentMethod.COD);
+  const [name, setName] = useState(restored?.order.customerName ?? "");
+  const [contact, setContact] = useState(restored?.order.customerContact ?? "");
+  const [address, setAddress] = useState(restored?.order.address ?? "");
   const [confirmed, setConfirmed] = useState<Order | null>(null);
   // UPI: the order is created first (so it has a real order ID for the payment note), then the pay card opens on top.
-  const [pendingUpi, setPendingUpi] = useState<Order | null>(null);
-  const [upiOpen, setUpiOpen] = useState(false);
+  const [pendingUpi, setPendingUpi] = useState<Order | null>(restored?.order ?? null);
+  const [pendingEndsAt, setPendingEndsAt] = useState<number | undefined>(restored?.endsAt);
+  const [upiOpen, setUpiOpen] = useState(!!restored);
   const [justSelected, setJustSelected] = useState<OrderInputPaymentMethod | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const createOrder = useCreateOrder();
@@ -331,7 +336,10 @@ function PurchaseModal({
         onSuccess: (order) => {
           trackEvent.mutate({ data: { type: "buy", productId: product.id } });
           if (order.paymentMethod === OrderInputPaymentMethod.UPI) {
+            const endsAt = Date.now() + UPI_WINDOW_SECONDS * 1000;
             setPendingUpi(order);
+            setPendingEndsAt(endsAt);
+            savePendingUpi({ order, endsAt, productId: product.id });
             setUpiOpen(true);
           } else {
             setConfirmed(order);
@@ -518,12 +526,14 @@ function PurchaseModal({
           const order = pendingUpi;
           setUpiOpen(false);
           setPendingUpi(null); // next attempt creates a fresh order (stock was released)
+          clearPendingUpi();
           customFetch(`/api/orders/${order.id}/cancel`, {
             method: "POST",
             body: JSON.stringify({ transactionId: order.transactionId }),
           }).catch(() => { /* best effort; admin can still cancel to restock */ });
         }}
-        onPaid={() => { setUpiOpen(false); setConfirmed(pendingUpi); }}
+        endsAt={pendingEndsAt}
+        onPaid={() => { clearPendingUpi(); setUpiOpen(false); setConfirmed(pendingUpi); }}
       />
     )}
     </>
@@ -532,7 +542,8 @@ function PurchaseModal({
 
 function ProductPage() {
   const { data: products, isLoading, isError } = useListProducts();
-  const [isCheckoutOpen, setCheckoutOpen] = useState(false);
+  // Coming back from the UPI app can reload the page: reopen checkout if a payment is still in progress.
+  const [isCheckoutOpen, setCheckoutOpen] = useState(() => !!loadPendingUpi());
   const trackEvent = useTrackAnalyticsEvent();
   const product = products?.[0];
 
