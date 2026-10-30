@@ -22,4 +22,5 @@ export interface Order {
   customerContact: string;
   address: string;
   transactionId?: string | null;
+  paidAt?: Date | null;
 }
