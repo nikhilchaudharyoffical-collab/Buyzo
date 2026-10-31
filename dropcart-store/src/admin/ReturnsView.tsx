@@ -68,14 +68,17 @@ function Steps({ order }: { order: Order }) {
 }
 
 function RefundHow({ order }: { order: Order }) {
+  // The UPI ID the customer typed when asking for the return. Orders cancelled after payment have none: use their phone number.
+  const target = order.refundUpi || order.customerContact;
   return (
     <div className="bd-refund-how">
       <CircleDollarSign size={16} />
       <div>
         <strong>Send {currency(order.total)} to {order.customerName}</strong>
-        <span>{order.paymentMethod === "UPI" ? "Paid by UPI" : "Paid cash on delivery"}. Send it back by UPI to {order.customerContact}, then mark it as sent.</span>
+        <span>{order.paymentMethod === "UPI" ? "Paid by UPI" : "Paid cash on delivery"}. {order.refundUpi ? "Customer's refund UPI ID:" : "No UPI ID given, send by UPI to their phone:"}</span>
+        <code>{target}</code>
       </div>
-      <CopyButton value={order.customerContact} label={`Copy ${order.customerName}'s phone number`} />
+      <CopyButton value={target} label={order.refundUpi ? "Copy refund UPI ID" : "Copy phone number"} />
     </div>
   );
 }
@@ -103,6 +106,7 @@ function Card({ order, filter, pending, onDecision, onRefund }: {
       <dl className="bd-rmeta">
         <div><dt>Customer</dt><dd>{order.customerName}<small>{order.customerContact}</small></dd></div>
         <div><dt>Amount</dt><dd>{currency(order.total)}<small>{order.paymentMethod === "UPI" ? "UPI" : "Cash on delivery"}</small></dd></div>
+        {order.refundUpi && <div><dt>Refund UPI ID</dt><dd className="bd-upi">{order.refundUpi}</dd></div>}
         {filter === "refunds" && <div><dt>Why</dt><dd>{refundReason}</dd></div>}
       </dl>
 

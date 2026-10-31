@@ -590,3 +590,5 @@
 @media (max-width: 640px) { .bd-seg button small { display: none; } .bd-refund-how { grid-template-columns: auto 1fr; } .bd-refund-how .bd-copy { grid-column: 1 / -1; justify-self: start; } }
 .bd-rcard > footer .bd-button { flex: 1 1 130px; min-height: 40px; font-size: 11px; }
 .bd-ask .bd-button { flex: 1 1 110px; min-height: 38px; font-size: 11px; }
+.bd-upi { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: #17705c; }
+.bd-refund-how code { width: fit-content; max-width: 100%; padding: 3px 8px; border-radius: 6px; background: #fff; border: 1px solid #cfe0d6; color: #0e4d3f; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; font-weight: 700; overflow-wrap: anywhere; }
