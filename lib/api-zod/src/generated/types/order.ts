@@ -23,4 +23,7 @@ export interface Order {
   address: string;
   transactionId?: string | null;
   paidAt?: Date | null;
+  refundStatus?: 'pending' | 'done' | null;
+  returnStatus?: 'requested' | 'approved' | 'rejected' | null;
+  returnReason?: string | null;
 }
