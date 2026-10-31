@@ -60,8 +60,14 @@ router.post("/my/orders/:orderId/cancel", rateLimit("my-cancel", 20, 10 * 60_000
 router.post("/my/orders/:orderId/return", rateLimit("my-return", 20, 10 * 60_000), async (req, res) => {
   const hash = deviceHashFrom(req.headers["x-device-id"]);
   const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  const upiId = typeof req.body?.upiId === "string" ? req.body.upiId.trim().toLowerCase() : "";
   if (reason.length < 3 || reason.length > 300) {
     res.status(400).json({ error: "Please tell us the reason in a few words" });
+    return;
+  }
+  // name@bank, e.g. rahul.k@okaxis. Needed so the refund can be sent to the right place.
+  if (!/^[a-z0-9._-]{2,64}@[a-z][a-z0-9]{1,30}$/.test(upiId)) {
+    res.status(400).json({ error: "Please enter a valid UPI ID, like name@bank" });
     return;
   }
   if (!hash) {
@@ -77,7 +83,7 @@ router.post("/my/orders/:orderId/return", rateLimit("my-return", 20, 10 * 60_000
       return { status: 409, error: `The ${RETURN_WINDOW_DAYS}-day return window for this order has closed` };
     }
     const [updated] = await tx.update(ordersTable)
-      .set({ returnStatus: "requested", returnReason: reason, returnRequestedAt: new Date() })
+      .set({ returnStatus: "requested", returnReason: reason, refundUpi: upiId, returnRequestedAt: new Date() })
       .where(eq(ordersTable.id, order.id)).returning();
     return { status: 200, row: updated };
   });
