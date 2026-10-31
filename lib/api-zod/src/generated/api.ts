@@ -164,7 +164,9 @@ export const ListOrdersResponseItem = zod.object({
   "paidAt": zod.coerce.date().nullish(),
   "refundStatus": zod.enum(['pending', 'done']).nullish(),
   "returnStatus": zod.enum(['requested', 'approved', 'rejected']).nullish(),
-  "returnReason": zod.string().nullish()
+  "returnReason": zod.string().nullish(),
+  "returnRequestedAt": zod.coerce.date().nullish(),
+  "deliveredAt": zod.coerce.date().nullish()
 })
 export const ListOrdersResponse = zod.array(ListOrdersResponseItem)
 
@@ -211,7 +213,9 @@ export const CreateOrderResponse = zod.object({
   "paidAt": zod.coerce.date().nullish(),
   "refundStatus": zod.enum(['pending', 'done']).nullish(),
   "returnStatus": zod.enum(['requested', 'approved', 'rejected']).nullish(),
-  "returnReason": zod.string().nullish()
+  "returnReason": zod.string().nullish(),
+  "returnRequestedAt": zod.coerce.date().nullish(),
+  "deliveredAt": zod.coerce.date().nullish()
 })
 
 
@@ -243,7 +247,9 @@ export const UpdateOrderResponse = zod.object({
   "paidAt": zod.coerce.date().nullish(),
   "refundStatus": zod.enum(['pending', 'done']).nullish(),
   "returnStatus": zod.enum(['requested', 'approved', 'rejected']).nullish(),
-  "returnReason": zod.string().nullish()
+  "returnReason": zod.string().nullish(),
+  "returnRequestedAt": zod.coerce.date().nullish(),
+  "deliveredAt": zod.coerce.date().nullish()
 })
 
 
