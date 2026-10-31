@@ -107,6 +107,9 @@ export interface Order {
   transactionId?: string | null;
   /** UPI orders: when the payment was confirmed. */
   paidAt?: string | null;
+  refundStatus?: 'pending' | 'done' | null;
+  returnStatus?: 'requested' | 'approved' | 'rejected' | null;
+  returnReason?: string | null;
 }
 
 export type OrderInputPaymentMethod = typeof OrderInputPaymentMethod[keyof typeof OrderInputPaymentMethod];
