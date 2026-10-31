@@ -110,6 +110,7 @@ export interface Order {
   refundStatus?: 'pending' | 'done' | null;
   returnStatus?: 'requested' | 'approved' | 'rejected' | null;
   returnReason?: string | null;
+  refundUpi?: string | null;
   returnRequestedAt?: string | null;
   deliveredAt?: string | null;
 }
