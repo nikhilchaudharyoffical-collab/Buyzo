@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { initializeStore } from "./routes/store";
+import { startSweeper } from "./lib/sweeper";
 
 const rawPort = process.env["PORT"];
 
@@ -25,6 +26,7 @@ initializeStore()
       }
 
       logger.info({ port }, "Server listening");
+      startSweeper();
     });
   })
   .catch((err: unknown) => {
