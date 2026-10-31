@@ -7,6 +7,7 @@ type MyOrder = Order & { canCancel: boolean; canReturn: boolean; returnWindowDay
 
 const money = (value: number) => `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 const day = (value: string | Date) => new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(new Date(value));
+const validUpi = (value: string) => /^[a-z0-9._-]{2,64}@[a-z][a-z0-9]{1,30}$/i.test(value);
 const STEPS = ["Processing", "Confirmed", "Shipped", "Delivered"] as const;
 
 const errorText = (error: unknown) =>
@@ -15,6 +16,7 @@ const errorText = (error: unknown) =>
 function OrderCard({ order, onChanged }: { order: MyOrder; onChanged: () => void }) {
   const [mode, setMode] = useState<"idle" | "cancel" | "return">("idle");
   const [reason, setReason] = useState("");
+  const [upiId, setUpiId] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -91,8 +93,12 @@ function OrderCard({ order, onChanged }: { order: MyOrder; onChanged: () => void
         <div className="myo-confirm">
           <label className="field-label" htmlFor={`ret-${order.id}`}>Why are you returning it? ({order.returnWindowDays}-day return window)</label>
           <textarea id={`ret-${order.id}`} value={reason} onChange={(event) => setReason(event.target.value)} maxLength={300} placeholder="Tell us in a few words" />
+          <label className="field-label" htmlFor={`upi-${order.id}`}>Your UPI ID for the refund</label>
+          <input id={`upi-${order.id}`} value={upiId} onChange={(event) => setUpiId(event.target.value.trim())} maxLength={80} inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="name@bank" aria-invalid={upiId.length > 0 && !validUpi(upiId)} />
+          {upiId.length > 0 && !validUpi(upiId) && <small className="myo-hint">Enter it like name@bank, for example rahul@okaxis</small>}
+          <small className="myo-hint">We'll send your refund to this UPI ID once the return is approved.</small>
           <div className="myo-actions">
-            <button type="button" className="primary-button" disabled={busy || reason.trim().length < 3} onClick={() => void act("return", { reason: reason.trim() })}>{busy ? "Sending..." : "Request return"}</button>
+            <button type="button" className="primary-button" disabled={busy || reason.trim().length < 3 || !validUpi(upiId)} onClick={() => void act("return", { reason: reason.trim(), upiId: upiId.toLowerCase() })}>{busy ? "Sending..." : "Request return"}</button>
             <button type="button" className="secondary-button" disabled={busy} onClick={() => setMode("idle")}>Back</button>
           </div>
         </div>
