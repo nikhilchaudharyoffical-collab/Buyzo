@@ -1,4 +1,5 @@
 import {
+  boolean,
   integer,
   jsonb,
   pgTable,
@@ -53,6 +54,13 @@ export const ordersTable = pgTable("orders", {
   payablePaise: integer("payable_paise"),
   // Set when a matching "Received" notification arrives (or an admin assigns one by hand).
   paidAt: timestamp("paid_at", { withTimezone: true, mode: "date" }),
+  // "My orders": sha256 of the secret id kept in the customer's browser. The raw id is never stored.
+  deviceHash: text("device_hash"),
+  deliveredAt: timestamp("delivered_at", { withTimezone: true, mode: "date" }),
+  refundStatus: text("refund_status"), // null | pending | done
+  returnStatus: text("return_status"), // null | requested | approved | rejected
+  returnReason: text("return_reason"),
+  returnRequestedAt: timestamp("return_requested_at", { withTimezone: true, mode: "date" }),
 }, (table) => [uniqueIndex("orders_transaction_id_key").on(table.transactionId)]);
 
 // Every "money received" notification sent by the listener app. Also the dedupe table (id = event id).
@@ -81,4 +89,13 @@ export const analyticsDailyTable = pgTable("analytics_daily", {
   day: text("day").primaryKey(),
   visits: integer("visits").notNull().default(0),
   clicks: integer("clicks").notNull().default(0),
+});
+
+// Last time the payment listener app (on the Paytm phone) told the server it is alive.
+export const listenerHeartbeatsTable = pgTable("listener_heartbeats", {
+  deviceId: text("device_id").primaryKey(),
+  lastSeen: timestamp("last_seen", { withTimezone: true, mode: "date" }).notNull(),
+  listenerEnabled: boolean("listener_enabled"),
+  batteryExempt: boolean("battery_exempt"),
+  pending: integer("pending"),
 });
