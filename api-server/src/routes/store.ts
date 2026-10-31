@@ -175,6 +175,8 @@ export const toOrder = (row: OrderRow): Order => ({
   refundStatus: (row.refundStatus ?? null) as Order["refundStatus"],
   returnStatus: (row.returnStatus ?? null) as Order["returnStatus"],
   returnReason: row.returnReason ?? null,
+  returnRequestedAt: row.returnRequestedAt ?? null,
+  deliveredAt: row.deliveredAt ?? null,
 });
 
 /** Identifies a browser. The id is a random secret kept in the customer's localStorage; only its hash is stored. */
