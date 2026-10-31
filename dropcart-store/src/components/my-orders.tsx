@@ -129,7 +129,7 @@ export function MyOrdersButton() {
         <PackageCheck size={16} /> My orders
       </button>
       {open && (
-        <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setOpen(false)}>
+        <div className="modal-backdrop myo-layer" onMouseDown={(event) => event.target === event.currentTarget && setOpen(false)}>
           <div className="purchase-modal myo-modal" role="dialog" aria-modal="true" aria-label="My orders">
             <button className="modal-close" onClick={() => setOpen(false)} aria-label="Close"><X size={18} /></button>
             <div className="modal-heading">
