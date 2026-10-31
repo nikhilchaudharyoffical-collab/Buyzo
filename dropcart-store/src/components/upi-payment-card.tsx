@@ -94,6 +94,7 @@ export function UpiPaymentCard({
   order,
   onCancel,
   onPaid,
+  onExpired,
   endsAt: initialEndsAt,
 }: {
   order: Order;
@@ -101,6 +102,8 @@ export function UpiPaymentCard({
   endsAt?: number;
   onCancel: () => void;
   onPaid: () => void;
+  /** The server cancelled the unpaid order (window over). */
+  onExpired?: () => void;
 }) {
   // The 7 minute window starts as soon as this card opens, whichever way the customer pays.
   const [endsAt, setEndsAt] = useState(() => initialEndsAt ?? Date.now() + UPI_WINDOW_SECONDS * 1000);
@@ -149,21 +152,29 @@ export function UpiPaymentCard({
   // The money is confirmed by the server (it sees the Paytm "received" notification). Ask every few seconds.
   const [checking, setChecking] = useState(false);
   const paidRef = useRef(false);
+  const failures = useRef(0);
   const checkPaid = async (manual = false) => {
     if (paidRef.current || !order.transactionId) return;
     if (manual) setChecking(true);
     try {
-      const result = await customFetch<{ paid: boolean }>(
-        `/api/orders/${encodeURIComponent(order.id)}/payment-status?transactionId=${encodeURIComponent(order.transactionId)}`,
+      const result = await customFetch<{ paid: boolean; status?: string }>(
+        `/api/orders/${encodeURIComponent(order.id)}/payment-status?transactionId=${encodeURIComponent(order.transactionId)}&t=${Date.now()}`,
+        { cache: "no-store" },
       );
+      failures.current = 0;
       if (result.paid && !paidRef.current) {
         paidRef.current = true;
         markPaid();
+      } else if (!result.paid && result.status === "Cancelled" && onExpired) {
+        paidRef.current = true; // stop polling
+        onExpired();
       } else if (manual && !result.paid) {
         setHint("We haven't received your payment yet. It usually shows up within a few seconds, please keep this window open.");
       }
     } catch {
-      if (manual) setHint("Couldn't check right now. Please try again in a moment.");
+      // A few failed checks in a row means the customer should know, instead of waiting silently.
+      failures.current += 1;
+      if (manual || failures.current >= 3) setHint("Couldn't check your payment right now. Please keep this window open or tap \"I've paid\" to try again.");
     } finally {
       if (manual) setChecking(false);
     }
