@@ -110,6 +110,8 @@ export interface Order {
   refundStatus?: 'pending' | 'done' | null;
   returnStatus?: 'requested' | 'approved' | 'rejected' | null;
   returnReason?: string | null;
+  returnRequestedAt?: string | null;
+  deliveredAt?: string | null;
 }
 
 export type OrderInputPaymentMethod = typeof OrderInputPaymentMethod[keyof typeof OrderInputPaymentMethod];
