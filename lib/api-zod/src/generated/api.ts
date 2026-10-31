@@ -165,6 +165,7 @@ export const ListOrdersResponseItem = zod.object({
   "refundStatus": zod.enum(['pending', 'done']).nullish(),
   "returnStatus": zod.enum(['requested', 'approved', 'rejected']).nullish(),
   "returnReason": zod.string().nullish(),
+  "refundUpi": zod.string().nullish(),
   "returnRequestedAt": zod.coerce.date().nullish(),
   "deliveredAt": zod.coerce.date().nullish()
 })
@@ -214,6 +215,7 @@ export const CreateOrderResponse = zod.object({
   "refundStatus": zod.enum(['pending', 'done']).nullish(),
   "returnStatus": zod.enum(['requested', 'approved', 'rejected']).nullish(),
   "returnReason": zod.string().nullish(),
+  "refundUpi": zod.string().nullish(),
   "returnRequestedAt": zod.coerce.date().nullish(),
   "deliveredAt": zod.coerce.date().nullish()
 })
@@ -248,6 +250,7 @@ export const UpdateOrderResponse = zod.object({
   "refundStatus": zod.enum(['pending', 'done']).nullish(),
   "returnStatus": zod.enum(['requested', 'approved', 'rejected']).nullish(),
   "returnReason": zod.string().nullish(),
+  "refundUpi": zod.string().nullish(),
   "returnRequestedAt": zod.coerce.date().nullish(),
   "deliveredAt": zod.coerce.date().nullish()
 })
