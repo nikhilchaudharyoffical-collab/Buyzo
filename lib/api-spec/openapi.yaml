@@ -262,6 +262,7 @@ components:
         refundStatus: { type: string, enum: [pending, done], nullable: true }
         returnStatus: { type: string, enum: [requested, approved, rejected], nullable: true }
         returnReason: { type: string, nullable: true }
+        refundUpi: { type: string, nullable: true }
         returnRequestedAt: { type: string, format: date-time, nullable: true }
         deliveredAt: { type: string, format: date-time, nullable: true }
     OrderInput:
