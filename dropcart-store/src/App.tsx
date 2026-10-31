@@ -62,6 +62,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { clearPendingUpi, loadPendingUpi, savePendingUpi } from "@/lib/pending-upi";
+import { MyOrdersButton } from "@/components/my-orders";
+import { deviceHeaders, notifyOrdersChanged } from "@/lib/device";
 import { UPI_WINDOW_SECONDS } from "@/lib/upi";
 import { AdminApp as BuyDoAdmin } from "@/admin/AdminApp";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -105,6 +107,7 @@ function AppHeader({ onMenu }: { onMenu?: () => void }) {
           <img className="brand-logo" src={`${import.meta.env.BASE_URL}brand/logo.png`} alt="BuyDo" />
         </button>
         <div className="topbar-actions">
+          <MyOrdersButton />
           <span className="trust-note"><ShieldCheck size={16} /> Secure checkout</span>
           <button className="avatar-button" aria-label="Account"><CircleUserRound size={21} /></button>
         </div>
@@ -271,9 +274,10 @@ function PurchaseModal({
   const [pendingUpi, setPendingUpi] = useState<Order | null>(restored?.order ?? null);
   const [pendingEndsAt, setPendingEndsAt] = useState<number | undefined>(restored?.endsAt);
   const [upiOpen, setUpiOpen] = useState(!!restored);
+  const [expiredNotice, setExpiredNotice] = useState(false);
   const [justSelected, setJustSelected] = useState<OrderInputPaymentMethod | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
-  const createOrder = useCreateOrder();
+  const createOrder = useCreateOrder({ request: { headers: deviceHeaders() } });
   const trackEvent = useTrackAnalyticsEvent();
   const isUpi = payment === OrderInputPaymentMethod.UPI;
   const subtotal = product.price * quantity;
@@ -334,6 +338,7 @@ function PurchaseModal({
       },
       {
         onSuccess: (order) => {
+          notifyOrdersChanged();
           trackEvent.mutate({ data: { type: "buy", productId: product.id } });
           if (order.paymentMethod === OrderInputPaymentMethod.UPI) {
             const endsAt = Date.now() + UPI_WINDOW_SECONDS * 1000;
@@ -514,6 +519,7 @@ function PurchaseModal({
               <button type="button" className="secondary-button" onClick={() => { createOrder.reset(); setStep("details"); }} disabled={createOrder.isPending}><ChevronLeft size={16} /> Edit details</button>
               <button type="button" className="primary-button" onClick={placeOrder} disabled={createOrder.isPending}>{createOrder.isPending ? "Placing your order..." : `Place order · ${money(total)}`} <ArrowRight size={17} /></button>
             </div>
+            {expiredNotice && <p className="form-error">Your payment window ended and the order was cancelled. Nothing was charged, please place the order again.</p>}
             {createOrder.isError && <p className="form-error">{((createOrder.error as { data?: { error?: string } } | null)?.data?.error) ?? "We couldn't place the order. Please check your details and try again."}</p>}
           </>
         )}
@@ -533,6 +539,13 @@ function PurchaseModal({
           }).catch(() => { /* best effort; admin can still cancel to restock */ });
         }}
         endsAt={pendingEndsAt}
+        onExpired={() => {
+          setUpiOpen(false);
+          setPendingUpi(null);
+          clearPendingUpi();
+          setExpiredNotice(true);
+          notifyOrdersChanged();
+        }}
         onPaid={() => { clearPendingUpi(); setUpiOpen(false); setConfirmed(pendingUpi); }}
       />
     )}

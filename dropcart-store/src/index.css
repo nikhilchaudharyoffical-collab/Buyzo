@@ -741,3 +741,27 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
   .upi-card-wrap *, .upi-card-wrap, .upi-card-wrap::after, .payment-option.upi-option::before { animation: none !important; }
   .unlock-fx { display: none; }
 }
+
+/* ---- My orders (customer) ---- */
+.myo-button { border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 999px; min-height: 36px; padding: 0 14px; display: inline-flex; gap: 7px; align-items: center; font-size: 12px; font-weight: 700; cursor: pointer; }
+.myo-button svg { color: var(--green); }
+.myo-button:hover { border-color: var(--purple); }
+.myo-modal { width: min(100%, 560px); }
+.myo-list { display: grid; gap: 14px; margin-top: 20px; }
+.myo-card { border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: grid; gap: 12px; background: #fff; }
+.myo-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.myo-top div { display: grid; gap: 3px; min-width: 0; }
+.myo-top small { color: #92969a; font-size: 11px; overflow-wrap: anywhere; }
+.myo-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.myo-steps li { display: grid; justify-items: center; gap: 5px; font-size: 10px; color: #a0a3a8; text-align: center; }
+.myo-steps li span { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: #efefeb; font-size: 10px; font-weight: 800; }
+.myo-steps li.done, .myo-steps li.active { color: var(--ink); }
+.myo-steps li.done span { background: var(--green); color: #fff; }
+.myo-steps li.active span { background: var(--purple); color: #fff; }
+.myo-meta { margin: 0; color: #7b7f85; font-size: 11px; line-height: 1.5; }
+.myo-note { margin: 0; padding: 9px 11px; border-radius: 10px; background: #f5f2ff; color: var(--purple-dark); font-size: 11px; font-weight: 700; }
+.myo-note.good { background: #e9f7f0; color: #17705c; }
+.myo-note.bad { background: #fdeeee; color: #b3261e; }
+.myo-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.myo-confirm { display: grid; gap: 10px; }
+.myo-confirm p { margin: 0; font-size: 12px; }
