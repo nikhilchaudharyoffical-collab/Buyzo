@@ -60,6 +60,8 @@ export const ordersTable = pgTable("orders", {
   refundStatus: text("refund_status"), // null | pending | done
   returnStatus: text("return_status"), // null | requested | approved | rejected
   returnReason: text("return_reason"),
+  // Where the customer wants a refund sent (asked when they request a return).
+  refundUpi: text("refund_upi"),
   returnRequestedAt: timestamp("return_requested_at", { withTimezone: true, mode: "date" }),
 }, (table) => [uniqueIndex("orders_transaction_id_key").on(table.transactionId)]);
 
