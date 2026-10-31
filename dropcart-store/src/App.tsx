@@ -7,10 +7,8 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  CircleUserRound,
   Clock3,
   Eye,
-  Heart,
   ImagePlus,
   LayoutDashboard,
   LockKeyhole,
@@ -19,6 +17,7 @@ import {
   Package,
   Pencil,
   Percent,
+  RotateCcw,
   Plus,
   Printer,
   RefreshCcw,
@@ -32,7 +31,6 @@ import {
   Truck,
   Users,
   X,
-  Zap,
 } from "lucide-react";
 import {
   type AnalyticsSummary,
@@ -96,20 +94,21 @@ const getTrendText = (
 };
 
 function AppHeader({ onMenu }: { onMenu?: () => void }) {
+  void onMenu;
   const [, navigate] = useLocation();
   return (
-    <header className="topbar">
-      <div className="topbar-inner">
-        <button className="icon-button mobile-menu" onClick={onMenu} aria-label="Open menu">
-          <Menu size={20} />
+    <header className="sf-header">
+      <div className="sf-header-in">
+        <button className="sf-brand" onClick={() => navigate("/")} aria-label="BuyDo home">
+          <img className="sf-brand-logo" src={`${import.meta.env.BASE_URL}brand/logo.png`} alt="BuyDo" />
         </button>
-        <button className="brand" onClick={() => navigate("/")}>
-          <img className="brand-logo" src={`${import.meta.env.BASE_URL}brand/logo.png`} alt="BuyDo" />
-        </button>
-        <div className="topbar-actions">
+        <nav className="sf-nav" aria-label="Page sections">
+          <a href="#details">About the product</a>
+          <a href="#delivery">Delivery and returns</a>
+        </nav>
+        <div className="sf-header-actions">
+          <span className="sf-secure"><ShieldCheck size={16} /> Secure checkout</span>
           <MyOrdersButton />
-          <span className="trust-note"><ShieldCheck size={16} /> Secure checkout</span>
-          <button className="avatar-button" aria-label="Account"><CircleUserRound size={21} /></button>
         </div>
       </div>
     </header>
@@ -125,69 +124,44 @@ function Rating({ rating, count }: { rating: number; count?: number }) {
   );
 }
 
-function BogoBadge({ className = "" }: { className?: string }) {
-  const phrases = ["Buy 1 Get 1 Free", "1 खरीदो, 1 मुफ़्त पाओ"];
-  const [index, setIndex] = useState(0);
-  useEffect(() => {
-    const timer = setInterval(() => setIndex((current) => (current + 1) % phrases.length), 2200);
-    return () => clearInterval(timer);
-  }, []);
-  return (
-    <span className={`bogo-badge ${className}`}>
-      <Sparkles size={12} fill="currentColor" />
-      <span className="bogo-badge-text" key={index}>{phrases[index]}</span>
-    </span>
-  );
-}
-
 function ProductGallery({ product }: { product: Product }) {
   const [active, setActive] = useState(0);
   const touchStartX = useState({ current: 0 })[0];
   const discountPercent = Math.round((1 - product.price / product.compareAtPrice) * 100);
+  const count = product.images.length;
 
-  const goTo = (index: number) => {
-    const count = product.images.length;
-    setActive(((index % count) + count) % count);
-  };
-
-  const onTouchStart = (event: TouchEvent) => {
-    touchStartX.current = event.touches[0].clientX;
-  };
+  const goTo = (index: number) => setActive(((index % count) + count) % count);
+  const onTouchStart = (event: TouchEvent) => { touchStartX.current = event.touches[0].clientX; };
   const onTouchEnd = (event: TouchEvent) => {
     const deltaX = event.changedTouches[0].clientX - touchStartX.current;
     if (Math.abs(deltaX) < 40) return;
-    if (deltaX < 0) goTo(active + 1);
-    else goTo(active - 1);
+    goTo(deltaX < 0 ? active + 1 : active - 1);
   };
 
   return (
-    <div className="gallery-wrap">
-      <div className="gallery-main" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-        <img src={product.images[active]} alt={`${product.name} view ${active + 1}`} />
-        {discountPercent > 0 && <span className="discount-sticker">{discountPercent}% OFF</span>}
-        <BogoBadge className="gallery-bogo" />
-        <span className="gallery-tag"><Zap size={13} fill="currentColor" /> Bestseller</span>
-        <button className="gallery-fav" aria-label="Add to wishlist"><Heart size={19} /></button>
-        {product.images.length > 1 && (
+    <div className="sf-gallery">
+      {count > 1 && (
+        <div className="sf-thumbs" role="tablist" aria-label="Product photos">
+          {product.images.map((image, index) => (
+            <button key={image + index} type="button" role="tab" aria-selected={active === index} aria-label={`Photo ${index + 1}`} className={active === index ? "active" : ""} onClick={() => setActive(index)}>
+              <img src={image} alt="" loading="lazy" />
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="sf-stage" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <img src={product.images[active]} alt={`${product.name}, photo ${active + 1} of ${count}`} />
+        {discountPercent > 0 && <span className="sf-off">{discountPercent}% off</span>}
+        {count > 1 && (
           <>
-            <button type="button" className="gallery-nav prev" aria-label="Previous image" onClick={() => goTo(active - 1)}><ChevronLeft size={18} /></button>
-            <button type="button" className="gallery-nav next" aria-label="Next image" onClick={() => goTo(active + 1)}><ChevronRight size={18} /></button>
-            <div className="gallery-dots">
-              {product.images.map((image, index) => (
-                <button key={image} type="button" className={`gallery-dot ${active === index ? "active" : ""}`} aria-label={`Go to image ${index + 1}`} onClick={() => goTo(index)} />
-              ))}
+            <button type="button" className="sf-arrow prev" aria-label="Previous photo" onClick={() => goTo(active - 1)}><ChevronLeft size={20} /></button>
+            <button type="button" className="sf-arrow next" aria-label="Next photo" onClick={() => goTo(active + 1)}><ChevronRight size={20} /></button>
+            <div className="sf-dots" aria-hidden="true">
+              {product.images.map((image, index) => <i key={image + index} className={active === index ? "active" : ""} />)}
             </div>
           </>
         )}
       </div>
-      <div className="gallery-thumbs">
-        {product.images.map((image, index) => (
-          <button key={image} className={`thumb ${active === index ? "active" : ""}`} onClick={() => setActive(index)}>
-            <img src={image} alt="" />
-          </button>
-        ))}
-      </div>
-      <div className="gallery-caption"><Eye size={14} /> 2,100+ people are viewing this right now</div>
     </div>
   );
 }
@@ -568,40 +542,142 @@ function ProductPage() {
     trackEvent.mutate({ data: { type: "visit", productId: null } });
   }, []);
 
-  if (isLoading) return <div className="page-loader"><div className="loader-orb" /><span>Preparing your product experience...</span></div>;
-  if (isError || !product) return <div className="empty-state"><Package size={30} /><h2>Product unavailable</h2><p>This product is currently being refreshed. Please check back shortly.</p></div>;
-  
+  if (isLoading) return <div className="sf-state" role="status"><div className="sf-spinner" /><span>Loading the store</span></div>;
+  if (isError || !product) return <div className="sf-state"><Package size={30} /><h2>This product isn't available right now</h2><p>We're updating the store. Please check back in a few minutes.</p></div>;
+
+  const discountPercent = Math.round((1 - product.price / product.compareAtPrice) * 100);
+  const soldOut = product.stock <= 0;
+  const openCheckout = () => {
+    trackEvent.mutate({ data: { type: "click", productId: product.id } });
+    setCheckoutOpen(true);
+  };
+  const upiArrival = formatLongDate(getDeliveryDate(5));
+  const codArrival = formatLongDate(getDeliveryDate(10));
+
   return (
-    <div className="storefront">
+    <div className="storefront sf">
+      <div className="sf-topline">
+        <span><Truck size={14} /> Free delivery on every order</span>
+        <span><RotateCcw size={14} /> 7-day returns</span>
+        <span><Percent size={14} /> Extra 1.5% off when you pay with UPI</span>
+      </div>
       <AppHeader />
-      <div className="announcement"><Sparkles size={14} /> Free delivery on every order <span>•</span> Easy 7-day returns</div>
-      <main className="product-page">
-        <div className="breadcrumbs"><span>Home</span><ChevronRight size={13} /><span>{product.category}</span><ChevronRight size={13} /><strong>{product.name}</strong></div>
-        <div className="product-layout">
+      <main className="sf-main">
+        <nav className="sf-crumbs" aria-label="Breadcrumb"><span>Home</span><ChevronRight size={13} /><span>{product.category}</span><ChevronRight size={13} /><strong>{product.name}</strong></nav>
+
+        <div className="sf-product">
           <ProductGallery product={product} />
-          <section className="product-copy">
-            <span className="eyebrow">{product.category} / just dropped</span>
+
+          <section className="sf-buy" aria-label="Buy this product">
             <h1>{product.name}</h1>
-            <p className="product-lede">{product.description}</p>
-            <Rating rating={product.rating} count={product.reviewCount} />
-            <div className="price-block"><span className="price">{money(product.price)}</span><span className="compare-price">{money(product.compareAtPrice)}</span><span className="save-badge">Save {Math.round((1 - product.price / product.compareAtPrice) * 100)}%</span></div>
-            <p className="tax-note">Inclusive of all taxes <span>•</span> Free shipping</p>
-            <div className="divider" />
-            <div className="feature-list">
-              {product.highlights.map((highlight, index) => <div key={highlight} className="feature-item"><span className="feature-number">0{index + 1}</span><span>{highlight}</span></div>)}
+            <a className="sf-rating" href="#ratings" aria-label={`Rated ${product.rating} out of 5 from ${product.reviewCount} ratings`}>
+              <span className="sf-stars"><Star size={13} fill="currentColor" /> {product.rating}</span>
+              <span>{product.reviewCount.toLocaleString("en-IN")} ratings</span>
+            </a>
+
+            <div className="sf-price">
+              <strong>{money(product.price)}</strong>
+              <s>{money(product.compareAtPrice)}</s>
+              {discountPercent > 0 && <span>{discountPercent}% off</span>}
             </div>
-            <div className="stock-note"><span className="stock-dot" /> Only {product.stock} units left in this batch <span className="stock-progress"><span /></span></div>
-            <button className="primary-button buy-button" onClick={() => { trackEvent.mutate({ data: { type: "click", productId: product.id } }); setCheckoutOpen(true); }}>Buy now <ArrowRight size={18} /><BogoBadge className="buy-button-bogo" /></button>
-            <div className="promise-grid"><div><Truck size={17} /><span><strong>Arrives by {formatDate(getDeliveryDate(10))}</strong><small>Free standard delivery</small></span></div><div><ShieldCheck size={17} /><span><strong>7-day easy returns</strong><small>No questions asked</small></span></div></div>
+            <p className="sf-tax">Inclusive of all taxes</p>
+
+            <div className="sf-offers">
+              <h2>Offers</h2>
+              <ul>
+                <li><Gift size={16} /><span><strong>Buy 1, get 1 free</strong> on this product</span></li>
+                <li><Percent size={16} /><span><strong>Extra 1.5% off</strong> when you pay with UPI</span></li>
+                <li><Truck size={16} /><span><strong>Free delivery</strong> on every order</span></li>
+              </ul>
+            </div>
+
+            <ul className="sf-points">
+              {product.highlights.map((highlight) => <li key={highlight}><Check size={16} />{highlight}</li>)}
+            </ul>
+
+            <div className="sf-ship">
+              <Truck size={18} />
+              <div>
+                <strong>Delivery by {upiArrival} with UPI</strong>
+                <span>or by {codArrival} with cash on delivery</span>
+              </div>
+            </div>
+
+            <p className={`sf-stock ${product.stock <= 10 ? "low" : ""}`}>
+              {soldOut ? "Out of stock" : product.stock <= 10 ? `Only ${product.stock} left in stock` : "In stock"}
+            </p>
+
+            <button className="sf-cta" onClick={openCheckout} disabled={soldOut}>{soldOut ? "Out of stock" : "Buy now"}</button>
+            <p className="sf-cta-note"><LockKeyhole size={13} /> Pay by UPI or cash on delivery. No account needed.</p>
+
+            <ul className="sf-trust">
+              <li><Truck size={20} /><span>Free delivery</span></li>
+              <li><RotateCcw size={20} /><span>7-day returns</span></li>
+              <li><ShieldCheck size={20} /><span>Secure payment</span></li>
+            </ul>
           </section>
         </div>
-        <section className="story-section">
-          <div><span className="eyebrow">Why people love it</span><h2>Designed to keep up with real life.</h2></div>
-          <div className="story-quote"><span className="quote-mark">“</span><p>Looks premium, feels lighter than expected, and the battery is genuinely impressive. I stopped reaching for my phone as much.</p><div className="quote-by"><span className="mini-avatar">RK</span><span><strong>Riya Kapoor</strong><small>Verified buyer · 4 days ago</small></span><Rating rating={5} /></div></div>
+
+        <section className="sf-section" id="details">
+          <h2>About this product</h2>
+          <div className="sf-about">
+            <p>{product.description}</p>
+            <dl className="sf-table">
+              <div><dt>Category</dt><dd>{product.category}</dd></div>
+              <div><dt>Payment</dt><dd>UPI or cash on delivery</dd></div>
+              <div><dt>Delivery</dt><dd>About 5 days with UPI, about 10 days with cash on delivery</dd></div>
+              <div><dt>Returns</dt><dd>7 days after delivery</dd></div>
+            </dl>
+          </div>
         </section>
-        <section className="review-strip"><div className="review-score"><strong>{product.rating}</strong><div><Rating rating={product.rating} /><span>Based on {product.reviewCount} reviews</span></div></div><div className="review-tags"><span>Feels premium</span><span>Fast delivery</span><span>Great battery</span><span>Worth the price</span></div></section>
+
+        <section className="sf-section" id="delivery">
+          <h2>Delivery, returns and payment</h2>
+          <div className="sf-faq">
+            <details open>
+              <summary>How long does delivery take?<ChevronRight size={16} /></summary>
+              <p>Orders paid with UPI arrive in about 5 days. Cash on delivery orders arrive in about 10 days. Delivery is free on every order.</p>
+            </details>
+            <details>
+              <summary>How do I track, cancel or return an order?<ChevronRight size={16} /></summary>
+              <p>Tap My orders at the top of the page on the phone you ordered from. You can see where your order is, cancel it before it ships, or ask for a return within 7 days of delivery. No login needed.</p>
+            </details>
+            <details>
+              <summary>How do refunds work?<ChevronRight size={16} /></summary>
+              <p>When you request a return, you share your UPI ID. Once the return is approved, we send the refund to that UPI ID.</p>
+            </details>
+            <details>
+              <summary>Which payment methods can I use?<ChevronRight size={16} /></summary>
+              <p>Pay with any UPI app (PhonePe, Google Pay, Paytm and more) and get an extra 1.5% off, or choose cash on delivery.</p>
+            </details>
+          </div>
+        </section>
+
+        <section className="sf-section sf-ratings" id="ratings">
+          <h2>Ratings</h2>
+          <div className="sf-ratingbox">
+            <strong>{product.rating}<small>/5</small></strong>
+            <div>
+              <span className="sf-starrow" aria-hidden="true">{[1, 2, 3, 4, 5].map((n) => <Star key={n} size={18} fill={n <= Math.round(product.rating) ? "currentColor" : "none"} />)}</span>
+              <span>Based on {product.reviewCount.toLocaleString("en-IN")} ratings</span>
+            </div>
+          </div>
+        </section>
       </main>
-      <div className="mobile-buy-bar"><div><span>From</span><strong>{money(product.price)}</strong></div><button className="primary-button" onClick={() => setCheckoutOpen(true)}>Buy now <ArrowRight size={17} /><BogoBadge className="buy-button-bogo" /></button></div>
+
+      <footer className="sf-footer">
+        <div className="sf-footer-in">
+          <img className="sf-footer-logo" src={`${import.meta.env.BASE_URL}brand/logo.png`} alt="BuyDo" />
+          <p>Free delivery, 7-day returns and secure payments on every order.</p>
+          <span className="sf-pay"><PayIcon brand="upi" size={22} /> UPI and cash on delivery</span>
+          <small>© {new Date().getFullYear()} BuyDo. All rights reserved.</small>
+        </div>
+      </footer>
+
+      <div className="sf-sticky">
+        <div><small>Price</small><strong>{money(product.price)}</strong></div>
+        <button className="sf-cta" onClick={openCheckout} disabled={soldOut}>{soldOut ? "Out of stock" : "Buy now"}</button>
+      </div>
       {isCheckoutOpen && <PurchaseModal product={product} onClose={() => setCheckoutOpen(false)} />}
     </div>
   );
