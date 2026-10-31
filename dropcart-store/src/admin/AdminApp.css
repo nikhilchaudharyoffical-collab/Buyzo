@@ -536,3 +536,9 @@
 .bd-pay-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .bd-pay-actions select { min-height: 38px; max-width: 100%; padding: 0 10px; border: 1px solid #d5dad7; border-radius: 10px; background: #fff; font: inherit; }
 @media (max-width: 640px) { .bd-pay-actions, .bd-pay-actions select { width: 100%; } }
+
+.bd-banner { display: grid; gap: 3px; margin: 0 0 14px; padding: 12px 14px; border-radius: 12px; font-size: 12px; line-height: 1.5; }
+.bd-banner.warn { background: #fff4e5; color: #8a4b00; border: 1px solid #ffd7a1; }
+.bd-banner strong { font-size: 13px; }
+.bd-linkbtn { margin-left: 8px; padding: 0; border: 0; background: none; color: #17705c; font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
+.bd-linkbtn:disabled { opacity: .5; cursor: default; }

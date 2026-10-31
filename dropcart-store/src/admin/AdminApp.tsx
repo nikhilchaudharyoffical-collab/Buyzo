@@ -109,6 +109,7 @@ type DatabaseOverview = {
 };
 
 type AdminTab = "overview" | "orders" | "payments" | "customers" | "products" | "data";
+type ListenerStatus = { lastSeen: string | null; listenerEnabled?: boolean | null; batteryExempt?: boolean | null; pending?: number | null };
 type UnmatchedPayment = { id: string; amount: number; sender: string; text: string; postedAt: string };
 type ProductForm = ProductInput;
 type ProductNumericField = "price" | "compareAtPrice" | "stock" | "rating" | "reviewCount";
@@ -310,6 +311,7 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
   const analytics = useQuery({ queryKey: ["admin", "analytics", fromDate, toDate], queryFn: () => request<Analytics>(`/api/admin/analytics?from=${fromDate}&to=${toDate}`), enabled: fromDate <= toDate && toDate <= today });
   const orders = useQuery({ queryKey: ["admin", "orders"], queryFn: () => request<Order[]>("/api/orders") });
   const payments = useQuery({ queryKey: ["admin", "payments"], queryFn: () => request<UnmatchedPayment[]>("/api/admin/payments"), refetchInterval: 20_000 });
+  const listener = useQuery({ queryKey: ["admin", "listener"], queryFn: () => request<ListenerStatus>("/api/admin/listener"), refetchInterval: 60_000 });
   const customers = useQuery({ queryKey: ["admin", "customers"], queryFn: () => request<Customer[]>("/api/admin/customers") });
   const products = useQuery({ queryKey: ["admin", "products"], queryFn: () => request<Product[]>("/api/products") });
   const database = useQuery({ queryKey: ["admin", "database"], queryFn: () => request<DatabaseOverview>("/api/admin/db/overview") });
@@ -326,6 +328,14 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
   const dismissPayment = useMutation({
     mutationFn: (id: string) => request(`/api/admin/payments/${encodeURIComponent(id)}/dismiss`, { method: "POST" }),
     onSuccess: () => { refresh(); setNotice("Payment dismissed."); },
+  });
+  const refundDone = useMutation({
+    mutationFn: (id: string) => request(`/api/admin/orders/${encodeURIComponent(id)}/refund-done`, { method: "POST" }),
+    onSuccess: () => { refresh(); setNotice("Refund marked as sent."); },
+  });
+  const returnDecision = useMutation({
+    mutationFn: ({ id, decision }: { id: string; decision: "approve" | "reject" }) => request(`/api/admin/orders/${encodeURIComponent(id)}/return-decision`, { method: "POST", body: JSON.stringify({ decision }) }),
+    onSuccess: (_data, variables) => { refresh(); setNotice(variables.decision === "approve" ? "Return approved. A refund is now pending." : "Return rejected."); },
   });
   const deleteOrder = useMutation({
     mutationFn: (id: string) => request(`/api/admin/orders/${encodeURIComponent(id)}`, { method: "DELETE" }),
@@ -401,9 +411,10 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
             <UserMenu onSignOut={() => void logout()} />
           </div>
         </header>
+        <ListenerBanner status={listener.data} loading={listener.isLoading} />
         {notice && <div className="bd-notice"><Check size={15} />{notice}<button onClick={() => setNotice("")} aria-label="Dismiss"><X size={15} /></button></div>}
         {tab === "overview" && <Overview data={analytics.data} loading={analytics.isLoading} error={analytics.error} orders={orders.data ?? []} onNavigate={setTab} onRetry={() => { void analytics.refetch(); void orders.refetch(); }} />}
-        {tab === "orders" && <OrdersView orders={matchingOrders} loading={orders.isLoading} error={orders.error} search={search} setSearch={setSearch} selected={selected} setSelected={setSelected} updateStatus={updateStatus.mutate} deleteOrder={deleteOrder.mutate} bulkDelete={bulkDelete.mutate} pending={updateStatus.isPending || deleteOrder.isPending || bulkDelete.isPending} />}
+        {tab === "orders" && <OrdersView orders={matchingOrders} loading={orders.isLoading} error={orders.error} search={search} setSearch={setSearch} selected={selected} setSelected={setSelected} updateStatus={updateStatus.mutate} deleteOrder={deleteOrder.mutate} bulkDelete={bulkDelete.mutate} pending={updateStatus.isPending || deleteOrder.isPending || bulkDelete.isPending || refundDone.isPending || returnDecision.isPending} refundDone={refundDone.mutate} returnDecision={returnDecision.mutate} />}
         {tab === "payments" && <PaymentsView payments={payments.data ?? []} loading={payments.isLoading} error={payments.error} orders={(orders.data ?? []).filter((order) => order.paymentMethod === "UPI" && !order.paidAt && order.status === "Processing")} assign={assignPayment.mutate} dismiss={dismissPayment.mutate} pending={assignPayment.isPending || dismissPayment.isPending} actionError={(assignPayment.error ?? dismissPayment.error) as Error | null} />}
         {tab === "customers" && <CustomersView customers={matchingCustomers} loading={customers.isLoading} error={customers.error} search={search} setSearch={setSearch} />}
         {tab === "products" && <ProductsView products={products.data ?? []} loading={products.isLoading} error={products.error} saveProduct={saveProduct.mutateAsync} deleteProduct={deleteProduct.mutate} pending={saveProduct.isPending || deleteProduct.isPending} />}
@@ -496,16 +507,16 @@ function SearchField({ value, onChange, placeholder }: { value: string; onChange
   return <label className="bd-search"><Search size={16} /><input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} /></label>;
 }
 
-function OrdersView({ orders, loading, error, search, setSearch, selected, setSelected, updateStatus, deleteOrder, bulkDelete, pending }: { orders: Order[]; loading: boolean; error: Error | null; search: string; setSearch: (value: string) => void; selected: string[]; setSelected: (value: string[]) => void; updateStatus: (variables: { id: string; status: OrderStatus }) => void; deleteOrder: (id: string) => void; bulkDelete: (ids: string[]) => void; pending: boolean }) {
+function OrdersView({ orders, loading, error, search, setSearch, selected, setSelected, updateStatus, deleteOrder, bulkDelete, pending, refundDone, returnDecision }: { refundDone: (id: string) => void; returnDecision: (variables: { id: string; decision: "approve" | "reject" }) => void; orders: Order[]; loading: boolean; error: Error | null; search: string; setSearch: (value: string) => void; selected: string[]; setSelected: (value: string[]) => void; updateStatus: (variables: { id: string; status: OrderStatus }) => void; deleteOrder: (id: string) => void; bulkDelete: (ids: string[]) => void; pending: boolean }) {
   const toggle = (id: string) => setSelected(selected.includes(id) ? selected.filter((item) => item !== id) : [...selected, id]);
   return <div className="bd-content">
     <div className="bd-page-intro"><div><h2>Order fulfilment</h2><p>Customer details and status for every order in the database.</p></div><a className="bd-button secondary" href="/api/admin/export/orders.csv"><Download size={15} /> Export CSV</a></div>
     <div className="bd-list-toolbar"><SearchField value={search} onChange={setSearch} placeholder="Search ID, customer, phone, address, transaction..." />{selected.length > 0 && <button className="bd-button danger" disabled={pending} onClick={() => window.confirm(`Delete ${selected.length} selected order(s)? This cannot be undone.`) && bulkDelete(selected)}><Trash2 size={15} />Delete selected ({selected.length})</button>}<span>{orders.length} order{orders.length === 1 ? "" : "s"}</span></div>
-    {loading ? <TableSkeleton rows={6} /> : error ? <div className="bd-state error">{error.message}</div> : <OrderTable rows={orders} selected={selected} onToggle={toggle} onStatus={updateStatus} onDelete={(id) => window.confirm("Permanently delete this order?") && deleteOrder(id)} pending={pending} />}
+    {loading ? <TableSkeleton rows={6} /> : error ? <div className="bd-state error">{error.message}</div> : <OrderTable rows={orders} selected={selected} onToggle={toggle} onStatus={updateStatus} onDelete={(id) => window.confirm("Permanently delete this order?") && deleteOrder(id)} pending={pending} onRefundDone={refundDone} onReturnDecision={returnDecision} />}
   </div>;
 }
 
-function OrderTable({ rows, compact = false, selected = [], onToggle, onStatus, onDelete, pending = false }: { rows: Order[]; compact?: boolean; selected?: string[]; onToggle?: (id: string) => void; onStatus?: (variables: { id: string; status: OrderStatus }) => void; onDelete?: (id: string) => void; pending?: boolean }) {
+function OrderTable({ rows, compact = false, selected = [], onToggle, onStatus, onDelete, pending = false, onRefundDone, onReturnDecision }: { onRefundDone?: (id: string) => void; onReturnDecision?: (variables: { id: string; decision: "approve" | "reject" }) => void; rows: Order[]; compact?: boolean; selected?: string[]; onToggle?: (id: string) => void; onStatus?: (variables: { id: string; status: OrderStatus }) => void; onDelete?: (id: string) => void; pending?: boolean }) {
   const [receiptId, setReceiptId] = useState<string | null>(null);
   const receiptOrder = receiptId ? rows.find((order) => order.id === receiptId) : undefined;
   if (!rows.length) return <EmptyState label="No orders recorded yet" />;
@@ -513,11 +524,23 @@ function OrderTable({ rows, compact = false, selected = [], onToggle, onStatus, 
     {!compact && onToggle && <td><input className="bd-check" type="checkbox" checked={selected.includes(order.id)} onChange={() => onToggle(order.id)} aria-label={`Select order ${order.id}`} /></td>}
     <td><strong>#{order.id}</strong><small>{dateTime(order.createdAt)}</small></td>
     <td><strong>{order.customerName}</strong><small>{order.customerContact}</small></td>
-    <td><strong>{order.productName}</strong><small>{order.quantity} unit{order.quantity === 1 ? "" : "s"} · {order.paymentMethod}</small>{order.transactionId && <small className="bd-txn">Txn {order.transactionId}</small>}{order.paymentMethod === "UPI" && <small className={order.paidAt ? "bd-paid" : "bd-unpaid"}>{order.paidAt ? `Paid ${dateTime(order.paidAt)}` : "Payment not received"}</small>}</td>
+    <td><strong>{order.productName}</strong><small>{order.quantity} unit{order.quantity === 1 ? "" : "s"} · {order.paymentMethod}</small>{order.transactionId && <small className="bd-txn">Txn {order.transactionId}</small>}{order.refundStatus === "pending" && <small className="bd-unpaid">Refund due {currency(order.total)}{onRefundDone && <button className="bd-linkbtn" disabled={pending} onClick={() => window.confirm(`Have you sent ${currency(order.total)} back to ${order.customerName}?`) && onRefundDone(order.id)}>Mark refunded</button>}</small>}{order.refundStatus === "done" && <small className="bd-paid">Refunded</small>}{order.returnStatus === "requested" && <small className="bd-unpaid">Return requested: “{order.returnReason}”{onReturnDecision && <><button className="bd-linkbtn" disabled={pending} onClick={() => onReturnDecision({ id: order.id, decision: "approve" })}>Approve</button><button className="bd-linkbtn" disabled={pending} onClick={() => onReturnDecision({ id: order.id, decision: "reject" })}>Reject</button></>}</small>}{order.returnStatus === "approved" && <small className="bd-paid">Return approved</small>}{order.returnStatus === "rejected" && <small className="bd-unpaid">Return rejected</small>}{order.paymentMethod === "UPI" && <small className={order.paidAt ? "bd-paid" : "bd-unpaid"}>{order.paidAt ? `Paid ${dateTime(order.paidAt)}` : "Payment not received"}</small>}</td>
     <td><strong>{currency(order.total)}</strong><small>Delivery {dateOnly(order.deliveryDate)}</small></td>
     <td>{onStatus ? <select className={`bd-order-status ${order.status.toLowerCase()}`} value={order.status} disabled={pending} onChange={(event) => onStatus({ id: order.id, status: event.target.value as OrderStatus })}><option>Processing</option><option>Confirmed</option><option>Shipped</option><option>Delivered</option><option>Cancelled</option></select> : <span className={`bd-status-pill ${order.status.toLowerCase()}`}>{order.status}</span>}</td>
     <td><div className="bd-row-actions"><button className="bd-button secondary compact" onClick={() => setReceiptId(order.id)} aria-label={`Open receipt for order ${order.id}`}><Receipt size={14} /> Receipt</button>{!compact && onDelete && <button className="bd-icon-button subtle-danger" onClick={() => onDelete(order.id)} disabled={pending} aria-label={`Delete order ${order.id}`} title="Delete order"><Trash2 size={15} /></button>}</div></td>
   </tr>)}</tbody></table></div>;
+}
+
+function ListenerBanner({ status, loading }: { status?: ListenerStatus; loading: boolean }) {
+  if (loading || !status) return null;
+  const minutes = status.lastSeen ? Math.floor((Date.now() - new Date(status.lastSeen).getTime()) / 60_000) : null;
+  // The phone reports in about every 15 minutes, so 45 minutes of silence means something is wrong.
+  let problem = "";
+  if (minutes === null) problem = "The payment listener app has never connected. UPI payments will not be confirmed automatically.";
+  else if (minutes > 45) problem = `The payment listener has been silent for ${minutes >= 120 ? `${Math.floor(minutes / 60)} hours` : `${minutes} minutes`}. Check that the Paytm phone is on, online, and the BuyDo Pay Listener app is running. UPI payments will not be confirmed until it is back.`;
+  else if (status.listenerEnabled === false) problem = "Notification access is switched off for the BuyDo Pay Listener app. UPI payments will not be confirmed until you turn it back on.";
+  if (!problem) return null;
+  return <div className="bd-banner warn" role="alert"><strong>Payment listener problem</strong><span>{problem}</span></div>;
 }
 
 function PaymentsView({ payments, loading, error, orders, assign, dismiss, pending, actionError }: { payments: UnmatchedPayment[]; loading: boolean; error: Error | null; orders: Order[]; assign: (variables: { id: string; orderId: string }) => void; dismiss: (id: string) => void; pending: boolean; actionError: Error | null }) {
