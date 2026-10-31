@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { and, desc, eq, gt, gte, lte, sql } from "drizzle-orm";
 import {
@@ -157,7 +157,7 @@ const toProduct = (row: ProductRow): Product => ({
   highlights: row.highlights,
 });
 
-const toOrder = (row: OrderRow): Order => ({
+export const toOrder = (row: OrderRow): Order => ({
   id: row.id,
   productId: row.productId,
   productName: row.productName,
@@ -172,7 +172,17 @@ const toOrder = (row: OrderRow): Order => ({
   address: row.address,
   transactionId: row.transactionId ?? null,
   paidAt: row.paidAt ?? null,
+  refundStatus: (row.refundStatus ?? null) as Order["refundStatus"],
+  returnStatus: (row.returnStatus ?? null) as Order["returnStatus"],
+  returnReason: row.returnReason ?? null,
 });
+
+/** Identifies a browser. The id is a random secret kept in the customer's localStorage; only its hash is stored. */
+export const deviceHashFrom = (value: unknown): string | null => {
+  const id = Array.isArray(value) ? value[0] : value;
+  if (typeof id !== "string" || !/^[a-f0-9]{64}$/.test(id)) return null;
+  return createHash("sha256").update(id).digest("hex");
+};
 
 // Payment reference for UPI orders, e.g. BDK7Q2M9XW4T. No 0/O/1/I so it is easy to read out and type.
 const TXN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -195,6 +205,20 @@ export const initializeStore = async (): Promise<void> => {
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payable_paise integer`);
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at timestamptz`);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS orders_payable_paise_idx ON orders (payable_paise)`);
+    await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS device_hash text`);
+    await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at timestamptz`);
+    await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_status text`);
+    await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_status text`);
+    await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_reason text`);
+    await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_requested_at timestamptz`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS orders_device_hash_idx ON orders (device_hash)`);
+    await db.execute(sql`CREATE TABLE IF NOT EXISTS listener_heartbeats (
+      device_id text PRIMARY KEY,
+      last_seen timestamptz NOT NULL,
+      listener_enabled boolean,
+      battery_exempt boolean,
+      pending integer
+    )`);
     await db.execute(sql`CREATE TABLE IF NOT EXISTS payment_events (
       id text PRIMARY KEY,
       amount_paise integer NOT NULL,
@@ -399,6 +423,7 @@ router.post("/orders", rateLimit("orders", 10, 10 * 60_000), async (req, res) =>
           createdAt: now,
           transactionId: isUpi ? newTransactionId() : null,
           payablePaise,
+          deviceHash: deviceHashFrom(req.headers["x-device-id"]),
         })
         .returning();
       return createdOrder;
@@ -468,7 +493,13 @@ router.patch("/orders/:orderId", requireAdminAuth, async (req, res) => {
         if (p && p.stock < current.quantity) throw new OrderError(409, `Only ${p.stock} unit(s) in stock, cannot re-open this order`);
         if (p) await tx.update(productsTable).set({ stock: sql`${productsTable.stock} - ${current.quantity}` }).where(eq(productsTable.id, p.id));
       }
-      const [updated] = await tx.update(ordersTable).set({ status: body.data.status }).where(eq(ordersTable.id, current.id)).returning();
+      const [updated] = await tx.update(ordersTable).set({
+        status: body.data.status,
+        // Starts the customer's return window.
+        ...(next === "Delivered" && current.status !== "Delivered" ? { deliveredAt: new Date() } : {}),
+        // Cancelling an order that was already paid for means money has to go back.
+        ...(next === "Cancelled" && current.status !== "Cancelled" && current.paidAt && !current.refundStatus ? { refundStatus: "pending" } : {}),
+      }).where(eq(ordersTable.id, current.id)).returning();
       return updated;
     });
     res.json(toOrder(row));

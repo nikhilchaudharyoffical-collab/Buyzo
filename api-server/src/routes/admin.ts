@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, count, desc, eq, inArray, lt, sql } from "drizzle-orm";
-import { analyticsDailyTable, db, ordersTable, paymentEventsTable, productsTable } from "@workspace/db";
+import { analyticsDailyTable, db, listenerHeartbeatsTable, ordersTable, paymentEventsTable, productsTable } from "@workspace/db";
 import { markOrderPaid } from "./payments";
 import { requireAdminAuth } from "./store";
 import { DAY_MS, istDay, istHour, istLabel, istWeekday } from "../lib/time";
@@ -13,6 +13,38 @@ const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const round = (n: number, d = 0) => Number(n.toFixed(d));
 const shiftDay = (day: string, offset: number) =>
   new Date(Date.parse(`${day}T00:00:00.000Z`) + offset * DAY_MS).toISOString().slice(0, 10);
+
+// ================= Is the payment listener (the Paytm phone) alive? =================
+router.get("/listener", async (_req, res) => {
+  const [latest] = await db.select().from(listenerHeartbeatsTable).orderBy(desc(listenerHeartbeatsTable.lastSeen)).limit(1);
+  res.json(latest ? { lastSeen: latest.lastSeen, listenerEnabled: latest.listenerEnabled, batteryExempt: latest.batteryExempt, pending: latest.pending } : { lastSeen: null });
+});
+
+// ================= Refunds and returns =================
+router.post("/orders/:orderId/refund-done", async (req, res) => {
+  const updated = await db.update(ordersTable).set({ refundStatus: "done" }).where(and(eq(ordersTable.id, req.params.orderId), eq(ordersTable.refundStatus, "pending"))).returning({ id: ordersTable.id });
+  if (!updated.length) {
+    res.status(404).json({ error: "No pending refund for this order" });
+    return;
+  }
+  res.json({ ok: true });
+});
+
+router.post("/orders/:orderId/return-decision", async (req, res) => {
+  const decision = req.body?.decision;
+  if (decision !== "approve" && decision !== "reject") {
+    res.status(400).json({ error: "Choose approve or reject" });
+    return;
+  }
+  const updated = await db.update(ordersTable)
+    .set(decision === "approve" ? { returnStatus: "approved", refundStatus: "pending" } : { returnStatus: "rejected" })
+    .where(and(eq(ordersTable.id, req.params.orderId), eq(ordersTable.returnStatus, "requested"))).returning({ id: ordersTable.id });
+  if (!updated.length) {
+    res.status(404).json({ error: "No open return request for this order" });
+    return;
+  }
+  res.json({ ok: true });
+});
 
 // ================= Payments that arrived but matched no order =================
 router.get("/payments", async (_req, res) => {

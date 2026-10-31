@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
-import { db, ordersTable, paymentEventsTable } from "@workspace/db";
+import { db, listenerHeartbeatsTable, ordersTable, paymentEventsTable } from "@workspace/db";
 import { rateLimit } from "../lib/rateLimit";
 
 const router: IRouter = Router();
@@ -64,6 +64,20 @@ router.post("/payments/notify", rateLimit("pay-notify", 240, 60_000), async (req
   }
 
   const body = (req.body ?? {}) as Record<string, unknown>;
+  // Any signed message proves the phone is alive; heartbeats also say whether notification access is still on.
+  const deviceId = String(req.headers["x-device-id"] ?? body.deviceId ?? "").slice(0, 80);
+  if (deviceId) {
+    const isHeartbeat = body.type === "heartbeat";
+    const flag = (value: unknown) => (typeof value === "boolean" ? value : null);
+    await db.insert(listenerHeartbeatsTable)
+      .values({ deviceId, lastSeen: new Date(), listenerEnabled: isHeartbeat ? flag(body.listenerEnabled) : null, batteryExempt: isHeartbeat ? flag(body.batteryExempt) : null, pending: isHeartbeat && Number.isFinite(Number(body.pending)) ? Number(body.pending) : null })
+      .onConflictDoUpdate({
+        target: listenerHeartbeatsTable.deviceId,
+        set: isHeartbeat
+          ? { lastSeen: new Date(), listenerEnabled: flag(body.listenerEnabled), batteryExempt: flag(body.batteryExempt), pending: Number.isFinite(Number(body.pending)) ? Number(body.pending) : null }
+          : { lastSeen: new Date() },
+      });
+  }
   const eventId = typeof body.id === "string" ? body.id : "";
   const title = typeof body.title === "string" ? body.title : "";
   const text = typeof body.text === "string" ? body.text : "";
