@@ -21,6 +21,7 @@ import {
   Plus,
   Receipt,
   RefreshCw,
+  RotateCcw,
   Search,
   ShoppingBag,
   Trash2,
@@ -47,6 +48,7 @@ import {
 } from "recharts";
 import type { Order, OrderStatus, Product, ProductInput } from "@workspace/api-client-react";
 import { OrderReceipt } from "./OrderReceipt";
+import { ReturnsView, countReturnWork } from "./ReturnsView";
 import "./AdminApp.css";
 
 type Kpis = {
@@ -108,7 +110,7 @@ type DatabaseOverview = {
   sizes: { name: string; bytes: number }[];
 };
 
-type AdminTab = "overview" | "orders" | "payments" | "customers" | "products" | "data";
+type AdminTab = "overview" | "orders" | "returns" | "payments" | "customers" | "products" | "data";
 type ListenerStatus = { lastSeen: string | null; listenerEnabled?: boolean | null; batteryExempt?: boolean | null; pending?: number | null };
 type UnmatchedPayment = { id: string; amount: number; sender: string; text: string; postedAt: string };
 type ProductForm = ProductInput;
@@ -384,6 +386,7 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
   const tabs: { id: AdminTab; label: string; icon: typeof Activity }[] = [
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "orders", label: "Orders", icon: ShoppingBag },
+    { id: "returns", label: "Returns", icon: RotateCcw },
     { id: "payments", label: "Payments", icon: Wallet },
     { id: "customers", label: "Customers", icon: Users },
     { id: "products", label: "Products", icon: Package },
@@ -395,7 +398,7 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
       <aside className="bd-rail">
         <a className="bd-admin-brand" href="/">BuyDo<span>.</span></a>
         <span className="bd-rail-label">STORE</span>
-        <nav>{tabs.map(({ id, label, icon: Icon }) => <button key={id} className={tab === id ? "active" : ""} onClick={() => { setTab(id); setSearch(""); }}><Icon size={17} />{label}{id === "orders" && (analytics.data?.pendingOrders ?? 0) > 0 && <b>{analytics.data?.pendingOrders}</b>}{id === "payments" && (payments.data?.length ?? 0) > 0 && <b>{payments.data?.length}</b>}</button>)}</nav>
+        <nav>{tabs.map(({ id, label, icon: Icon }) => <button key={id} className={tab === id ? "active" : ""} onClick={() => { setTab(id); setSearch(""); }}><Icon size={17} />{label}{id === "orders" && (analytics.data?.pendingOrders ?? 0) > 0 && <b>{analytics.data?.pendingOrders}</b>}{id === "payments" && (payments.data?.length ?? 0) > 0 && <b>{payments.data?.length}</b>}{id === "returns" && countReturnWork(orders.data ?? []) > 0 && <b>{countReturnWork(orders.data ?? [])}</b>}</button>)}</nav>
         <div className="bd-rail-foot"><span className={database.isError ? "offline" : ""}><i />{database.isLoading ? "Checking database" : database.isError ? "Database unavailable" : "Database connected"}</span><a href="/">← View storefront</a></div>
       </aside>
       <main className="bd-main">
@@ -414,7 +417,8 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
         <ListenerBanner status={listener.data} loading={listener.isLoading} />
         {notice && <div className="bd-notice"><Check size={15} />{notice}<button onClick={() => setNotice("")} aria-label="Dismiss"><X size={15} /></button></div>}
         {tab === "overview" && <Overview data={analytics.data} loading={analytics.isLoading} error={analytics.error} orders={orders.data ?? []} onNavigate={setTab} onRetry={() => { void analytics.refetch(); void orders.refetch(); }} />}
-        {tab === "orders" && <OrdersView orders={matchingOrders} loading={orders.isLoading} error={orders.error} search={search} setSearch={setSearch} selected={selected} setSelected={setSelected} updateStatus={updateStatus.mutate} deleteOrder={deleteOrder.mutate} bulkDelete={bulkDelete.mutate} pending={updateStatus.isPending || deleteOrder.isPending || bulkDelete.isPending || refundDone.isPending || returnDecision.isPending} refundDone={refundDone.mutate} returnDecision={returnDecision.mutate} />}
+        {tab === "orders" && <OrdersView orders={matchingOrders} loading={orders.isLoading} error={orders.error} search={search} setSearch={setSearch} selected={selected} setSelected={setSelected} updateStatus={updateStatus.mutate} deleteOrder={deleteOrder.mutate} bulkDelete={bulkDelete.mutate} pending={updateStatus.isPending || deleteOrder.isPending || bulkDelete.isPending || refundDone.isPending || returnDecision.isPending} />}
+        {tab === "returns" && <ReturnsView orders={orders.data ?? []} pending={refundDone.isPending || returnDecision.isPending} onReturnDecision={returnDecision.mutate} onRefundDone={refundDone.mutate} />}
         {tab === "payments" && <PaymentsView payments={payments.data ?? []} loading={payments.isLoading} error={payments.error} orders={(orders.data ?? []).filter((order) => order.paymentMethod === "UPI" && !order.paidAt && order.status === "Processing")} assign={assignPayment.mutate} dismiss={dismissPayment.mutate} pending={assignPayment.isPending || dismissPayment.isPending} actionError={(assignPayment.error ?? dismissPayment.error) as Error | null} />}
         {tab === "customers" && <CustomersView customers={matchingCustomers} loading={customers.isLoading} error={customers.error} search={search} setSearch={setSearch} />}
         {tab === "products" && <ProductsView products={products.data ?? []} loading={products.isLoading} error={products.error} saveProduct={saveProduct.mutateAsync} deleteProduct={deleteProduct.mutate} pending={saveProduct.isPending || deleteProduct.isPending} />}
@@ -507,16 +511,16 @@ function SearchField({ value, onChange, placeholder }: { value: string; onChange
   return <label className="bd-search"><Search size={16} /><input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} /></label>;
 }
 
-function OrdersView({ orders, loading, error, search, setSearch, selected, setSelected, updateStatus, deleteOrder, bulkDelete, pending, refundDone, returnDecision }: { refundDone: (id: string) => void; returnDecision: (variables: { id: string; decision: "approve" | "reject" }) => void; orders: Order[]; loading: boolean; error: Error | null; search: string; setSearch: (value: string) => void; selected: string[]; setSelected: (value: string[]) => void; updateStatus: (variables: { id: string; status: OrderStatus }) => void; deleteOrder: (id: string) => void; bulkDelete: (ids: string[]) => void; pending: boolean }) {
+function OrdersView({ orders, loading, error, search, setSearch, selected, setSelected, updateStatus, deleteOrder, bulkDelete, pending }: { orders: Order[]; loading: boolean; error: Error | null; search: string; setSearch: (value: string) => void; selected: string[]; setSelected: (value: string[]) => void; updateStatus: (variables: { id: string; status: OrderStatus }) => void; deleteOrder: (id: string) => void; bulkDelete: (ids: string[]) => void; pending: boolean }) {
   const toggle = (id: string) => setSelected(selected.includes(id) ? selected.filter((item) => item !== id) : [...selected, id]);
   return <div className="bd-content">
     <div className="bd-page-intro"><div><h2>Order fulfilment</h2><p>Customer details and status for every order in the database.</p></div><a className="bd-button secondary" href="/api/admin/export/orders.csv"><Download size={15} /> Export CSV</a></div>
     <div className="bd-list-toolbar"><SearchField value={search} onChange={setSearch} placeholder="Search ID, customer, phone, address, transaction..." />{selected.length > 0 && <button className="bd-button danger" disabled={pending} onClick={() => window.confirm(`Delete ${selected.length} selected order(s)? This cannot be undone.`) && bulkDelete(selected)}><Trash2 size={15} />Delete selected ({selected.length})</button>}<span>{orders.length} order{orders.length === 1 ? "" : "s"}</span></div>
-    {loading ? <TableSkeleton rows={6} /> : error ? <div className="bd-state error">{error.message}</div> : <OrderTable rows={orders} selected={selected} onToggle={toggle} onStatus={updateStatus} onDelete={(id) => window.confirm("Permanently delete this order?") && deleteOrder(id)} pending={pending} onRefundDone={refundDone} onReturnDecision={returnDecision} />}
+    {loading ? <TableSkeleton rows={6} /> : error ? <div className="bd-state error">{error.message}</div> : <OrderTable rows={orders} selected={selected} onToggle={toggle} onStatus={updateStatus} onDelete={(id) => window.confirm("Permanently delete this order?") && deleteOrder(id)} pending={pending} />}
   </div>;
 }
 
-function OrderTable({ rows, compact = false, selected = [], onToggle, onStatus, onDelete, pending = false, onRefundDone, onReturnDecision }: { onRefundDone?: (id: string) => void; onReturnDecision?: (variables: { id: string; decision: "approve" | "reject" }) => void; rows: Order[]; compact?: boolean; selected?: string[]; onToggle?: (id: string) => void; onStatus?: (variables: { id: string; status: OrderStatus }) => void; onDelete?: (id: string) => void; pending?: boolean }) {
+function OrderTable({ rows, compact = false, selected = [], onToggle, onStatus, onDelete, pending = false }: { rows: Order[]; compact?: boolean; selected?: string[]; onToggle?: (id: string) => void; onStatus?: (variables: { id: string; status: OrderStatus }) => void; onDelete?: (id: string) => void; pending?: boolean }) {
   const [receiptId, setReceiptId] = useState<string | null>(null);
   const receiptOrder = receiptId ? rows.find((order) => order.id === receiptId) : undefined;
   if (!rows.length) return <EmptyState label="No orders recorded yet" />;
@@ -524,11 +528,23 @@ function OrderTable({ rows, compact = false, selected = [], onToggle, onStatus, 
     {!compact && onToggle && <td><input className="bd-check" type="checkbox" checked={selected.includes(order.id)} onChange={() => onToggle(order.id)} aria-label={`Select order ${order.id}`} /></td>}
     <td><strong>#{order.id}</strong><small>{dateTime(order.createdAt)}</small></td>
     <td><strong>{order.customerName}</strong><small>{order.customerContact}</small></td>
-    <td><strong>{order.productName}</strong><small>{order.quantity} unit{order.quantity === 1 ? "" : "s"} · {order.paymentMethod}</small>{order.transactionId && <small className="bd-txn">Txn {order.transactionId}</small>}{order.refundStatus === "pending" && <small className="bd-unpaid">Refund due {currency(order.total)}{onRefundDone && <button className="bd-linkbtn" disabled={pending} onClick={() => window.confirm(`Have you sent ${currency(order.total)} back to ${order.customerName}?`) && onRefundDone(order.id)}>Mark refunded</button>}</small>}{order.refundStatus === "done" && <small className="bd-paid">Refunded</small>}{order.returnStatus === "requested" && <small className="bd-unpaid">Return requested: “{order.returnReason}”{onReturnDecision && <><button className="bd-linkbtn" disabled={pending} onClick={() => onReturnDecision({ id: order.id, decision: "approve" })}>Approve</button><button className="bd-linkbtn" disabled={pending} onClick={() => onReturnDecision({ id: order.id, decision: "reject" })}>Reject</button></>}</small>}{order.returnStatus === "approved" && <small className="bd-paid">Return approved</small>}{order.returnStatus === "rejected" && <small className="bd-unpaid">Return rejected</small>}{order.paymentMethod === "UPI" && <small className={order.paidAt ? "bd-paid" : "bd-unpaid"}>{order.paidAt ? `Paid ${dateTime(order.paidAt)}` : "Payment not received"}</small>}</td>
+    <td><strong>{order.productName}</strong><small>{order.quantity} unit{order.quantity === 1 ? "" : "s"} · {order.paymentMethod}</small>{order.transactionId && <small className="bd-txn">Txn {order.transactionId}</small>}<OrderFlags order={order} />{order.paymentMethod === "UPI" && <small className={order.paidAt ? "bd-paid" : "bd-unpaid"}>{order.paidAt ? `Paid ${dateTime(order.paidAt)}` : "Payment not received"}</small>}</td>
     <td><strong>{currency(order.total)}</strong><small>Delivery {dateOnly(order.deliveryDate)}</small></td>
     <td>{onStatus ? <select className={`bd-order-status ${order.status.toLowerCase()}`} value={order.status} disabled={pending} onChange={(event) => onStatus({ id: order.id, status: event.target.value as OrderStatus })}><option>Processing</option><option>Confirmed</option><option>Shipped</option><option>Delivered</option><option>Cancelled</option></select> : <span className={`bd-status-pill ${order.status.toLowerCase()}`}>{order.status}</span>}</td>
     <td><div className="bd-row-actions"><button className="bd-button secondary compact" onClick={() => setReceiptId(order.id)} aria-label={`Open receipt for order ${order.id}`}><Receipt size={14} /> Receipt</button>{!compact && onDelete && <button className="bd-icon-button subtle-danger" onClick={() => onDelete(order.id)} disabled={pending} aria-label={`Delete order ${order.id}`} title="Delete order"><Trash2 size={15} /></button>}</div></td>
   </tr>)}</tbody></table></div>;
+}
+
+/** Compact status chips for returns and refunds. The work itself happens in the Returns tab. */
+function OrderFlags({ order }: { order: Order }) {
+  const chips: { text: string; tone: "warn" | "ok" | "bad" }[] = [];
+  if (order.returnStatus === "requested") chips.push({ text: "Return requested", tone: "warn" });
+  if (order.returnStatus === "approved") chips.push({ text: "Return approved", tone: "ok" });
+  if (order.returnStatus === "rejected") chips.push({ text: "Return rejected", tone: "bad" });
+  if (order.refundStatus === "pending") chips.push({ text: "Refund due", tone: "warn" });
+  if (order.refundStatus === "done") chips.push({ text: "Refunded", tone: "ok" });
+  if (!chips.length) return null;
+  return <span className="bd-chips">{chips.map((chip) => <span key={chip.text} className={`bd-chip ${chip.tone}`}>{chip.text}</span>)}</span>;
 }
 
 function ListenerBanner({ status, loading }: { status?: ListenerStatus; loading: boolean }) {
