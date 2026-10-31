@@ -175,6 +175,7 @@ export const toOrder = (row: OrderRow): Order => ({
   refundStatus: (row.refundStatus ?? null) as Order["refundStatus"],
   returnStatus: (row.returnStatus ?? null) as Order["returnStatus"],
   returnReason: row.returnReason ?? null,
+  refundUpi: row.refundUpi ?? null,
   returnRequestedAt: row.returnRequestedAt ?? null,
   deliveredAt: row.deliveredAt ?? null,
 });
@@ -212,6 +213,7 @@ export const initializeStore = async (): Promise<void> => {
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_status text`);
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_status text`);
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_reason text`);
+    await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_upi text`);
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_requested_at timestamptz`);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS orders_device_hash_idx ON orders (device_hash)`);
     await db.execute(sql`CREATE TABLE IF NOT EXISTS listener_heartbeats (
