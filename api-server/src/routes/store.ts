@@ -237,6 +237,23 @@ export const initializeStore = async (): Promise<void> => {
   } catch (error) {
     console.warn("Could not prepare payment matching tables", error);
   }
+  try {
+    await db.execute(sql`CREATE TABLE IF NOT EXISTS reviews (
+      id text PRIMARY KEY,
+      order_id text NOT NULL,
+      product_id text NOT NULL,
+      display_name text NOT NULL,
+      rating integer NOT NULL,
+      body text NOT NULL,
+      avatar text,
+      status text NOT NULL,
+      created_at timestamptz NOT NULL
+    )`);
+    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS reviews_order_id_key ON reviews (order_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS reviews_product_idx ON reviews (product_id, status, created_at)`);
+  } catch (error) {
+    console.warn("Could not prepare reviews table", error);
+  }
   const [existingAnalytics] = await db
     .select({ id: analyticsTable.id })
     .from(analyticsTable)

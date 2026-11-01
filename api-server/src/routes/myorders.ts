@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq, sql } from "drizzle-orm";
-import { db, ordersTable, productsTable } from "@workspace/db";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { db, ordersTable, productsTable, reviewsTable } from "@workspace/db";
 import { rateLimit } from "../lib/rateLimit";
 import { DAY_MS } from "../lib/time";
 import { deviceHashFrom, toOrder } from "./store";
@@ -14,12 +14,12 @@ const CANCELLABLE = ["Processing", "Confirmed"];
 
 type OrderRow = typeof ordersTable.$inferSelect;
 
-const view = (row: OrderRow) => {
+const view = (row: OrderRow, reviewed = false) => {
   const base = row.deliveredAt ?? row.deliveryDate;
   const canCancel = CANCELLABLE.includes(row.status);
   const canReturn =
     row.status === "Delivered" && !row.returnStatus && Date.now() - new Date(base).getTime() <= RETURN_WINDOW_DAYS * DAY_MS;
-  return { ...toOrder(row), canCancel, canReturn, returnWindowDays: RETURN_WINDOW_DAYS };
+  return { ...toOrder(row), canCancel, canReturn, returnWindowDays: RETURN_WINDOW_DAYS, canReview: row.status === "Delivered" && !reviewed, reviewed };
 };
 
 router.get("/my/orders", rateLimit("my-orders", 120, 60_000), async (req, res) => {
@@ -29,7 +29,10 @@ router.get("/my/orders", rateLimit("my-orders", 120, 60_000), async (req, res) =
     return;
   }
   const rows = await db.select().from(ordersTable).where(eq(ordersTable.deviceHash, hash)).orderBy(desc(ordersTable.createdAt)).limit(30);
-  res.json(rows.map(view));
+  const reviewed = rows.length
+    ? new Set((await db.select({ orderId: reviewsTable.orderId }).from(reviewsTable).where(inArray(reviewsTable.orderId, rows.map((row) => row.id)))).map((row) => row.orderId))
+    : new Set<string>();
+  res.json(rows.map((row) => view(row, reviewed.has(row.id))));
 });
 
 router.post("/my/orders/:orderId/cancel", rateLimit("my-cancel", 20, 10 * 60_000), async (req, res) => {

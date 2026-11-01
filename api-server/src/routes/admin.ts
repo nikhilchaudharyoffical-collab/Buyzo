@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, count, desc, eq, inArray, lt, sql } from "drizzle-orm";
-import { analyticsDailyTable, db, listenerHeartbeatsTable, ordersTable, paymentEventsTable, productsTable } from "@workspace/db";
+import { analyticsDailyTable, db, listenerHeartbeatsTable, ordersTable, paymentEventsTable, productsTable, reviewsTable } from "@workspace/db";
 import { markOrderPaid } from "./payments";
 import { requireAdminAuth } from "./store";
 import { DAY_MS, istDay, istHour, istLabel, istWeekday } from "../lib/time";
@@ -18,6 +18,31 @@ const shiftDay = (day: string, offset: number) =>
 router.get("/listener", async (_req, res) => {
   const [latest] = await db.select().from(listenerHeartbeatsTable).orderBy(desc(listenerHeartbeatsTable.lastSeen)).limit(1);
   res.json(latest ? { lastSeen: latest.lastSeen, listenerEnabled: latest.listenerEnabled, batteryExempt: latest.batteryExempt, pending: latest.pending } : { lastSeen: null });
+});
+
+// ================= Reviews: customers publish straight away, the admin can hide or delete =================
+router.get("/reviews", async (_req, res) => {
+  const rows = await db.select().from(reviewsTable).orderBy(desc(reviewsTable.createdAt)).limit(200);
+  res.json(rows.map((row) => ({ id: row.id, orderId: row.orderId, name: row.displayName, rating: row.rating, body: row.body, avatar: row.avatar, status: row.status, createdAt: row.createdAt })));
+});
+
+router.post("/reviews/:id/visibility", async (req, res) => {
+  const status = req.body?.hidden === true ? "hidden" : "published";
+  const updated = await db.update(reviewsTable).set({ status }).where(eq(reviewsTable.id, req.params.id)).returning({ id: reviewsTable.id });
+  if (!updated.length) {
+    res.status(404).json({ error: "Review not found" });
+    return;
+  }
+  res.json({ ok: true, status });
+});
+
+router.delete("/reviews/:id", async (req, res) => {
+  const deleted = await db.delete(reviewsTable).where(eq(reviewsTable.id, req.params.id)).returning({ id: reviewsTable.id });
+  if (!deleted.length) {
+    res.status(404).json({ error: "Review not found" });
+    return;
+  }
+  res.json({ ok: true });
 });
 
 // ================= Refunds and returns =================
