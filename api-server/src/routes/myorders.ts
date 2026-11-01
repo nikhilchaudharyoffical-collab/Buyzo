@@ -1,3 +1,4 @@
+import { productsAcceptingReviews } from "../lib/settings";
 import { Router, type IRouter } from "express";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, ordersTable, productsTable, reviewsTable } from "@workspace/db";
@@ -14,12 +15,12 @@ const CANCELLABLE = ["Processing", "Confirmed"];
 
 type OrderRow = typeof ordersTable.$inferSelect;
 
-const view = (row: OrderRow, reviewed = false) => {
+const view = (row: OrderRow, reviewed = false, reviewsOpen = false) => {
   const base = row.deliveredAt ?? row.deliveryDate;
   const canCancel = CANCELLABLE.includes(row.status);
   const canReturn =
     row.status === "Delivered" && !row.returnStatus && Date.now() - new Date(base).getTime() <= RETURN_WINDOW_DAYS * DAY_MS;
-  return { ...toOrder(row), canCancel, canReturn, returnWindowDays: RETURN_WINDOW_DAYS, canReview: row.status === "Delivered" && !reviewed, reviewed };
+  return { ...toOrder(row), canCancel, canReturn, returnWindowDays: RETURN_WINDOW_DAYS, canReview: row.status === "Delivered" && !reviewed && reviewsOpen, reviewed };
 };
 
 router.get("/my/orders", rateLimit("my-orders", 120, 60_000), async (req, res) => {
@@ -32,7 +33,8 @@ router.get("/my/orders", rateLimit("my-orders", 120, 60_000), async (req, res) =
   const reviewed = rows.length
     ? new Set((await db.select({ orderId: reviewsTable.orderId }).from(reviewsTable).where(inArray(reviewsTable.orderId, rows.map((row) => row.id)))).map((row) => row.orderId))
     : new Set<string>();
-  res.json(rows.map((row) => view(row, reviewed.has(row.id))));
+  const open = await productsAcceptingReviews([...new Set(rows.map((row) => row.productId))]);
+  res.json(rows.map((row) => view(row, reviewed.has(row.id), open.has(row.productId))));
 });
 
 router.post("/my/orders/:orderId/cancel", rateLimit("my-cancel", 20, 10 * 60_000), async (req, res) => {
@@ -46,7 +48,7 @@ router.post("/my/orders/:orderId/cancel", rateLimit("my-cancel", 20, 10 * 60_000
     if (!order) return { status: 404, error: "Order not found" };
     if (order.status === "Cancelled") return { status: 200, row: order };
     if (!CANCELLABLE.includes(order.status)) return { status: 409, error: "This order has already been shipped and can't be cancelled. You can request a return after it is delivered." };
-    await tx.update(productsTable).set({ stock: sql`${productsTable.stock} + ${order.quantity}` }).where(eq(productsTable.id, order.productId));
+    await tx.update(productsTable).set({ stock: sql`${productsTable.stock} + ${order.quantity + order.freeQuantity}` }).where(eq(productsTable.id, order.productId));
     // Money already received for a UPI order has to go back to the customer: flag it for the admin.
     const [updated] = await tx.update(ordersTable)
       .set({ status: "Cancelled", ...(order.paidAt ? { refundStatus: "pending" } : {}) })

@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { and, count, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { analyticsDailyTable, db, listenerHeartbeatsTable, ordersTable, paymentEventsTable, productsTable, reviewsTable } from "@workspace/db";
 import { markOrderPaid } from "./payments";
+import { reviewsSwitchOn, setReviewsSwitch } from "../lib/settings";
 import { requireAdminAuth } from "./store";
 import { DAY_MS, istDay, istHour, istLabel, istWeekday } from "../lib/time";
 
@@ -18,6 +19,20 @@ const shiftDay = (day: string, offset: number) =>
 router.get("/listener", async (_req, res) => {
   const [latest] = await db.select().from(listenerHeartbeatsTable).orderBy(desc(listenerHeartbeatsTable.lastSeen)).limit(1);
   res.json(latest ? { lastSeen: latest.lastSeen, listenerEnabled: latest.listenerEnabled, batteryExempt: latest.batteryExempt, pending: latest.pending } : { lastSeen: null });
+});
+
+// ================= Store switches =================
+router.get("/settings", async (_req, res) => {
+  res.json({ reviewsEnabled: await reviewsSwitchOn() });
+});
+
+router.put("/settings", async (req, res) => {
+  if (typeof req.body?.reviewsEnabled !== "boolean") {
+    res.status(400).json({ error: "reviewsEnabled must be true or false" });
+    return;
+  }
+  await setReviewsSwitch(req.body.reviewsEnabled);
+  res.json({ reviewsEnabled: req.body.reviewsEnabled });
 });
 
 // ================= Reviews: customers publish straight away, the admin can hide or delete =================

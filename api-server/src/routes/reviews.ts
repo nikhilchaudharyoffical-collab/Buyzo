@@ -4,6 +4,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { db, ordersTable, reviewsTable } from "@workspace/db";
 import { rateLimit } from "../lib/rateLimit";
 import { deviceHashFrom } from "./store";
+import { productsAcceptingReviews } from "../lib/settings";
 
 const router: IRouter = Router();
 
@@ -81,6 +82,7 @@ router.post("/my/orders/:orderId/review", rateLimit("review-post", 15, 10 * 60_0
     const [order] = await tx.select().from(ordersTable).where(and(eq(ordersTable.id, req.params.orderId), eq(ordersTable.deviceHash, hash))).for("update");
     if (!order) return { status: 404, error: "Order not found" };
     if (order.status !== "Delivered") return { status: 409, error: "You can review a product after it is delivered" };
+    if (!(await productsAcceptingReviews([order.productId])).has(order.productId)) return { status: 409, error: "Reviews are closed for this product right now" };
     const inserted = await tx.insert(reviewsTable).values({
       id: `rev-${randomUUID()}`,
       orderId: order.id,

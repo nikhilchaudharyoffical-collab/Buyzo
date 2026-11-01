@@ -155,6 +155,8 @@ const toProduct = (row: ProductRow): Product => ({
   stock: row.stock,
   images: row.images,
   highlights: row.highlights,
+  bogoEnabled: row.bogoEnabled,
+  reviewsEnabled: row.reviewsEnabled,
 });
 
 export const toOrder = (row: OrderRow): Order => ({
@@ -162,6 +164,7 @@ export const toOrder = (row: OrderRow): Order => ({
   productId: row.productId,
   productName: row.productName,
   quantity: row.quantity,
+  freeQuantity: row.freeQuantity ?? 0,
   total: row.total,
   paymentMethod: row.paymentMethod as Order["paymentMethod"],
   status: row.status as Order["status"],
@@ -215,6 +218,11 @@ export const initializeStore = async (): Promise<void> => {
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_reason text`);
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_upi text`);
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_requested_at timestamptz`);
+    await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS free_quantity integer NOT NULL DEFAULT 0`);
+    // Existing products keep the Buy 1 Get 1 offer they had; the admin can switch it off per product.
+    await db.execute(sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS bogo_enabled boolean NOT NULL DEFAULT true`);
+    await db.execute(sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS reviews_enabled boolean NOT NULL DEFAULT true`);
+    await db.execute(sql`CREATE TABLE IF NOT EXISTS store_settings (key text PRIMARY KEY, value text NOT NULL)`);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS orders_device_hash_idx ON orders (device_hash)`);
     await db.execute(sql`CREATE TABLE IF NOT EXISTS listener_heartbeats (
       device_id text PRIMARY KEY,
@@ -306,6 +314,8 @@ router.post("/products", requireAdminAuth, async (req, res) => {
     .values({
       id: `product-${randomUUID()}`,
       ...parsed.data,
+      bogoEnabled: parsed.data.bogoEnabled ?? false,
+      reviewsEnabled: parsed.data.reviewsEnabled ?? true,
       createdAt: new Date(),
     })
     .returning();
@@ -391,8 +401,13 @@ router.post("/orders", rateLimit("orders", 10, 10 * 60_000), async (req, res) =>
         .where(eq(productsTable.id, input.productId))
         .for("update");
       if (!product) throw new OrderError(404, "This product is no longer available");
-      if (product.stock < input.quantity) {
-        throw new OrderError(409, product.stock > 0 ? `Only ${product.stock} unit(s) left in stock` : "This product is out of stock");
+      // Buy 1 get 1 free: every unit bought brings one free unit, so both come out of stock.
+      const freeQuantity = product.bogoEnabled ? input.quantity : 0;
+      const units = input.quantity + freeQuantity;
+      if (product.stock < units) {
+        throw new OrderError(409, product.stock >= input.quantity && freeQuantity
+          ? `Only ${product.stock} unit(s) left, which isn't enough for ${input.quantity} with the free ones. Please order ${Math.floor(product.stock / 2)} or fewer.`
+          : product.stock > 0 ? `Only ${product.stock} unit(s) left in stock` : "This product is out of stock");
       }
 
       // Price, discount and delivery date are decided by the server, not the browser.
@@ -429,7 +444,7 @@ router.post("/orders", rateLimit("orders", 10, 10 * 60_000), async (req, res) =>
 
       await tx
         .update(productsTable)
-        .set({ stock: sql`${productsTable.stock} - ${input.quantity}` })
+        .set({ stock: sql`${productsTable.stock} - ${units}` })
         .where(eq(productsTable.id, product.id));
 
       const [createdOrder] = await tx
@@ -438,6 +453,7 @@ router.post("/orders", rateLimit("orders", 10, 10 * 60_000), async (req, res) =>
           id: `BD-${Date.now()}-${randomUUID().slice(0, 8)}`,
           ...input,
           productName: product.name,
+          freeQuantity,
           total,
           deliveryDate: new Date(now.getTime() + (isUpi ? 5 : 10) * DAY_MS),
           status: "Processing",
@@ -475,7 +491,7 @@ router.post("/orders/:orderId/cancel", rateLimit("order-cancel", 20, 10 * 60_000
       if (current.paidAt) throw new OrderError(409, "Payment was already received for this order");
       if (current.status === "Cancelled") return current; // already released, never restock twice
       if (current.status !== "Processing") throw new OrderError(409, "This order can no longer be cancelled");
-      await tx.update(productsTable).set({ stock: sql`${productsTable.stock} + ${current.quantity}` }).where(eq(productsTable.id, current.productId));
+      await tx.update(productsTable).set({ stock: sql`${productsTable.stock} + ${current.quantity + current.freeQuantity}` }).where(eq(productsTable.id, current.productId));
       const [updated] = await tx.update(ordersTable).set({ status: "Cancelled" }).where(eq(ordersTable.id, current.id)).returning();
       return updated;
     });
@@ -508,11 +524,12 @@ router.patch("/orders/:orderId", requireAdminAuth, async (req, res) => {
       const next = body.data.status as string;
       // Keep stock honest: cancelling returns units, re-opening takes them again.
       if (current.status !== "Cancelled" && next === "Cancelled") {
-        await tx.update(productsTable).set({ stock: sql`${productsTable.stock} + ${current.quantity}` }).where(eq(productsTable.id, current.productId));
+        await tx.update(productsTable).set({ stock: sql`${productsTable.stock} + ${current.quantity + current.freeQuantity}` }).where(eq(productsTable.id, current.productId));
       } else if (current.status === "Cancelled" && next !== "Cancelled") {
         const [p] = await tx.select().from(productsTable).where(eq(productsTable.id, current.productId)).for("update");
-        if (p && p.stock < current.quantity) throw new OrderError(409, `Only ${p.stock} unit(s) in stock, cannot re-open this order`);
-        if (p) await tx.update(productsTable).set({ stock: sql`${productsTable.stock} - ${current.quantity}` }).where(eq(productsTable.id, p.id));
+        const reopenUnits = current.quantity + current.freeQuantity;
+        if (p && p.stock < reopenUnits) throw new OrderError(409, `Only ${p.stock} unit(s) in stock, cannot re-open this order`);
+        if (p) await tx.update(productsTable).set({ stock: sql`${productsTable.stock} - ${reopenUnits}` }).where(eq(productsTable.id, p.id));
       }
       const [updated] = await tx.update(ordersTable).set({
         status: body.data.status,
