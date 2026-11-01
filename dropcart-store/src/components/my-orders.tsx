@@ -67,7 +67,7 @@ function OrderCard({ order, onChanged }: { order: MyOrder; onChanged: () => void
       )}
 
       <p className="myo-meta">
-        {order.quantity} unit{order.quantity === 1 ? "" : "s"} · {isUpi ? (order.paidAt ? "UPI · Paid" : "UPI · Payment not received") : "Cash on delivery"}
+        {order.quantity} unit{order.quantity === 1 ? "" : "s"}{(order.freeQuantity ?? 0) > 0 ? ` + ${order.freeQuantity} free` : ""} · {isUpi ? (order.paidAt ? "UPI · Paid" : "UPI · Payment not received") : "Cash on delivery"}
         {!cancelled && order.status !== "Delivered" && <> · Delivery by {day(order.deliveryDate)}</>}
       </p>
 
