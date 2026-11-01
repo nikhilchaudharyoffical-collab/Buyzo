@@ -21,6 +21,7 @@ import {
   Plus,
   Receipt,
   RefreshCw,
+  MessageSquareText,
   RotateCcw,
   Search,
   ShoppingBag,
@@ -49,6 +50,7 @@ import {
 import type { Order, OrderStatus, Product, ProductInput } from "@workspace/api-client-react";
 import { OrderReceipt } from "./OrderReceipt";
 import { ReturnsView, countReturnWork } from "./ReturnsView";
+import { ReviewsView, type AdminReview } from "./ReviewsView";
 import "./AdminApp.css";
 
 type Kpis = {
@@ -110,7 +112,7 @@ type DatabaseOverview = {
   sizes: { name: string; bytes: number }[];
 };
 
-type AdminTab = "overview" | "orders" | "returns" | "payments" | "customers" | "products" | "data";
+type AdminTab = "overview" | "orders" | "returns" | "reviews" | "payments" | "customers" | "products" | "data";
 type ListenerStatus = { lastSeen: string | null; listenerEnabled?: boolean | null; batteryExempt?: boolean | null; pending?: number | null };
 type UnmatchedPayment = { id: string; amount: number; sender: string; text: string; postedAt: string };
 type ProductForm = ProductInput;
@@ -314,6 +316,7 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
   const orders = useQuery({ queryKey: ["admin", "orders"], queryFn: () => request<Order[]>("/api/orders") });
   const payments = useQuery({ queryKey: ["admin", "payments"], queryFn: () => request<UnmatchedPayment[]>("/api/admin/payments"), refetchInterval: 20_000 });
   const listener = useQuery({ queryKey: ["admin", "listener"], queryFn: () => request<ListenerStatus>("/api/admin/listener"), refetchInterval: 60_000 });
+  const reviews = useQuery({ queryKey: ["admin", "reviews"], queryFn: () => request<AdminReview[]>("/api/admin/reviews") });
   const customers = useQuery({ queryKey: ["admin", "customers"], queryFn: () => request<Customer[]>("/api/admin/customers") });
   const products = useQuery({ queryKey: ["admin", "products"], queryFn: () => request<Product[]>("/api/products") });
   const database = useQuery({ queryKey: ["admin", "database"], queryFn: () => request<DatabaseOverview>("/api/admin/db/overview") });
@@ -338,6 +341,14 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
   const returnDecision = useMutation({
     mutationFn: ({ id, decision }: { id: string; decision: "approve" | "reject" }) => request(`/api/admin/orders/${encodeURIComponent(id)}/return-decision`, { method: "POST", body: JSON.stringify({ decision }) }),
     onSuccess: (_data, variables) => { refresh(); setNotice(variables.decision === "approve" ? "Return approved. A refund is now pending." : "Return rejected."); },
+  });
+  const reviewVisibility = useMutation({
+    mutationFn: ({ id, hidden }: { id: string; hidden: boolean }) => request(`/api/admin/reviews/${encodeURIComponent(id)}/visibility`, { method: "POST", body: JSON.stringify({ hidden }) }),
+    onSuccess: (_data, variables) => { refresh(); setNotice(variables.hidden ? "Review hidden from the store." : "Review is live again."); },
+  });
+  const reviewDelete = useMutation({
+    mutationFn: (id: string) => request(`/api/admin/reviews/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    onSuccess: () => { refresh(); setNotice("Review deleted."); },
   });
   const deleteOrder = useMutation({
     mutationFn: (id: string) => request(`/api/admin/orders/${encodeURIComponent(id)}`, { method: "DELETE" }),
@@ -387,6 +398,7 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "orders", label: "Orders", icon: ShoppingBag },
     { id: "returns", label: "Returns", icon: RotateCcw },
+    { id: "reviews", label: "Reviews", icon: MessageSquareText },
     { id: "payments", label: "Payments", icon: Wallet },
     { id: "customers", label: "Customers", icon: Users },
     { id: "products", label: "Products", icon: Package },
@@ -419,6 +431,7 @@ function AdminWorkspace({ onSignOut }: { onSignOut: () => void }) {
         {tab === "overview" && <Overview data={analytics.data} loading={analytics.isLoading} error={analytics.error} orders={orders.data ?? []} onNavigate={setTab} onRetry={() => { void analytics.refetch(); void orders.refetch(); }} />}
         {tab === "orders" && <OrdersView orders={matchingOrders} loading={orders.isLoading} error={orders.error} search={search} setSearch={setSearch} selected={selected} setSelected={setSelected} updateStatus={updateStatus.mutate} deleteOrder={deleteOrder.mutate} bulkDelete={bulkDelete.mutate} pending={updateStatus.isPending || deleteOrder.isPending || bulkDelete.isPending || refundDone.isPending || returnDecision.isPending} />}
         {tab === "returns" && <ReturnsView orders={orders.data ?? []} pending={refundDone.isPending || returnDecision.isPending} onReturnDecision={returnDecision.mutate} onRefundDone={refundDone.mutate} />}
+        {tab === "reviews" && <ReviewsView reviews={reviews.data ?? []} loading={reviews.isLoading} error={reviews.error} pending={reviewVisibility.isPending || reviewDelete.isPending} onVisibility={reviewVisibility.mutate} onDelete={reviewDelete.mutate} />}
         {tab === "payments" && <PaymentsView payments={payments.data ?? []} loading={payments.isLoading} error={payments.error} orders={(orders.data ?? []).filter((order) => order.paymentMethod === "UPI" && !order.paidAt && order.status === "Processing")} assign={assignPayment.mutate} dismiss={dismissPayment.mutate} pending={assignPayment.isPending || dismissPayment.isPending} actionError={(assignPayment.error ?? dismissPayment.error) as Error | null} />}
         {tab === "customers" && <CustomersView customers={matchingCustomers} loading={customers.isLoading} error={customers.error} search={search} setSearch={setSearch} />}
         {tab === "products" && <ProductsView products={products.data ?? []} loading={products.isLoading} error={products.error} saveProduct={saveProduct.mutateAsync} deleteProduct={deleteProduct.mutate} pending={saveProduct.isPending || deleteProduct.isPending} />}

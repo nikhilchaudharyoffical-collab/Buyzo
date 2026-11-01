@@ -592,3 +592,18 @@
 .bd-ask .bd-button { flex: 1 1 110px; min-height: 38px; font-size: 11px; }
 .bd-upi { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: #17705c; }
 .bd-refund-how code { width: fit-content; max-width: 100%; padding: 3px 8px; border-radius: 6px; background: #fff; border: 1px solid #cfe0d6; color: #0e4d3f; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; font-weight: 700; overflow-wrap: anywhere; }
+
+/* ---- Reviews tab ---- */
+.bd-rvlist { display: grid; gap: 10px; }
+.bd-rv { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 14px; border: 1px solid var(--admin-line); border-radius: 12px; background: #fff; box-shadow: var(--admin-shadow); }
+.bd-rv.hidden { opacity: .6; background: #fafaf8; }
+.bd-rv > img, .bd-rv-initial { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+.bd-rv-initial { display: grid; place-items: center; background: #e5efe9; color: #17705c; font-weight: 700; }
+.bd-rv-main { min-width: 0; display: grid; gap: 4px; }
+.bd-rv-main header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.bd-rv-main strong { font-size: 13px; }
+.bd-rv-stars { display: inline-flex; gap: 1px; color: #e8a21a; }
+.bd-rv-main p { margin: 0; font-size: 12px; line-height: 1.55; color: #36443d; overflow-wrap: anywhere; }
+.bd-rv-main small { color: #7b8a82; font-size: 10px; }
+.bd-rv-actions { display: flex; align-items: center; gap: 6px; }
+@media (max-width: 640px) { .bd-rv { grid-template-columns: auto minmax(0, 1fr); } .bd-rv-actions { grid-column: 1 / -1; justify-content: flex-end; } }
