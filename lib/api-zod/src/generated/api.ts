@@ -31,7 +31,9 @@ export const ListProductsResponseItem = zod.object({
   "reviewCount": zod.number().int(),
   "stock": zod.number().int(),
   "images": zod.array(zod.string()),
-  "highlights": zod.array(zod.string())
+  "highlights": zod.array(zod.string()),
+  "bogoEnabled": zod.boolean(),
+  "reviewsEnabled": zod.boolean()
 })
 export const ListProductsResponse = zod.array(ListProductsResponseItem)
 
@@ -65,7 +67,9 @@ export const CreateProductBody = zod.object({
   "reviewCount": zod.number().int().min(createProductBodyReviewCountMin),
   "stock": zod.number().int().min(createProductBodyStockMin),
   "images": zod.array(zod.string().url()),
-  "highlights": zod.array(zod.string())
+  "highlights": zod.array(zod.string()),
+  "bogoEnabled": zod.boolean().optional(),
+  "reviewsEnabled": zod.boolean().optional()
 })
 
 export const CreateProductResponse = zod.object({
@@ -79,7 +83,9 @@ export const CreateProductResponse = zod.object({
   "reviewCount": zod.number().int(),
   "stock": zod.number().int(),
   "images": zod.array(zod.string()),
-  "highlights": zod.array(zod.string())
+  "highlights": zod.array(zod.string()),
+  "bogoEnabled": zod.boolean(),
+  "reviewsEnabled": zod.boolean()
 })
 
 
@@ -116,7 +122,9 @@ export const UpdateProductBody = zod.object({
   "reviewCount": zod.number().int().min(updateProductBodyReviewCountMin).optional(),
   "stock": zod.number().int().min(updateProductBodyStockMin).optional(),
   "images": zod.array(zod.string().url()).optional(),
-  "highlights": zod.array(zod.string()).optional()
+  "highlights": zod.array(zod.string()).optional(),
+  "bogoEnabled": zod.boolean().optional(),
+  "reviewsEnabled": zod.boolean().optional()
 })
 
 export const UpdateProductResponse = zod.object({
@@ -130,7 +138,9 @@ export const UpdateProductResponse = zod.object({
   "reviewCount": zod.number().int(),
   "stock": zod.number().int(),
   "images": zod.array(zod.string()),
-  "highlights": zod.array(zod.string())
+  "highlights": zod.array(zod.string()),
+  "bogoEnabled": zod.boolean(),
+  "reviewsEnabled": zod.boolean()
 })
 
 
@@ -152,6 +162,7 @@ export const ListOrdersResponseItem = zod.object({
   "productId": zod.string(),
   "productName": zod.string(),
   "quantity": zod.number().int(),
+  "freeQuantity": zod.number().int().optional(),
   "total": zod.number(),
   "paymentMethod": zod.enum(['COD', 'UPI']),
   "status": zod.enum(['Processing', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled']),
@@ -202,6 +213,7 @@ export const CreateOrderResponse = zod.object({
   "productId": zod.string(),
   "productName": zod.string(),
   "quantity": zod.number().int(),
+  "freeQuantity": zod.number().int().optional(),
   "total": zod.number(),
   "paymentMethod": zod.enum(['COD', 'UPI']),
   "status": zod.enum(['Processing', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled']),
@@ -237,6 +249,7 @@ export const UpdateOrderResponse = zod.object({
   "productId": zod.string(),
   "productName": zod.string(),
   "quantity": zod.number().int(),
+  "freeQuantity": zod.number().int().optional(),
   "total": zod.number(),
   "paymentMethod": zod.enum(['COD', 'UPI']),
   "status": zod.enum(['Processing', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled']),
