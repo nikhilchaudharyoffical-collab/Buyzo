@@ -61,6 +61,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { clearPendingUpi, loadPendingUpi, savePendingUpi } from "@/lib/pending-upi";
 import { MyOrdersButton } from "@/components/my-orders";
+import { ReviewsSection } from "@/components/reviews";
+import { useReviews } from "@/lib/reviews";
 import { deviceHeaders, notifyOrdersChanged } from "@/lib/device";
 import { UPI_WINDOW_SECONDS } from "@/lib/upi";
 import { AdminApp as BuyDoAdmin } from "@/admin/AdminApp";
@@ -115,15 +117,6 @@ function AppHeader({ onMenu }: { onMenu?: () => void }) {
   );
 }
 
-function Rating({ rating, count }: { rating: number; count?: number }) {
-  return (
-    <div className="rating-row">
-      <span className="rating-pill"><Star size={13} fill="currentColor" /> {rating}</span>
-      {count ? <span className="muted-text">{count.toLocaleString("en-IN")} verified reviews</span> : null}
-    </div>
-  );
-}
-
 function ProductGallery({ product }: { product: Product }) {
   const [active, setActive] = useState(0);
   const touchStartX = useState({ current: 0 })[0];
@@ -152,6 +145,7 @@ function ProductGallery({ product }: { product: Product }) {
       <div className="sf-stage" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <img src={product.images[active]} alt={`${product.name}, photo ${active + 1} of ${count}`} />
         {discountPercent > 0 && <span className="sf-off">{discountPercent}% off</span>}
+        <span className="sf-new">Just dropped</span>
         {count > 1 && (
           <>
             <button type="button" className="sf-arrow prev" aria-label="Previous photo" onClick={() => goTo(active - 1)}><ChevronLeft size={20} /></button>
@@ -532,6 +526,7 @@ function ProductPage() {
   // Coming back from the UPI app can reload the page: reopen checkout if a payment is still in progress.
   const [isCheckoutOpen, setCheckoutOpen] = useState(() => !!loadPendingUpi());
   const trackEvent = useTrackAnalyticsEvent();
+  const reviewData = useReviews();
   const product = products?.[0];
 
   // Count one visit per page load. (It used to re-run when the product loaded, so every visit counted twice.)
@@ -570,10 +565,12 @@ function ProductPage() {
 
           <section className="sf-buy" aria-label="Buy this product">
             <h1>{product.name}</h1>
-            <a className="sf-rating" href="#ratings" aria-label={`Rated ${product.rating} out of 5 from ${product.reviewCount} ratings`}>
-              <span className="sf-stars"><Star size={13} fill="currentColor" /> {product.rating}</span>
-              <span>{product.reviewCount.toLocaleString("en-IN")} ratings</span>
-            </a>
+            {reviewData.summary.count > 0 && (
+              <a className="sf-rating" href="#ratings" aria-label={`Rated ${reviewData.summary.average} out of 5 from ${reviewData.summary.count} reviews`}>
+                <span className="sf-stars"><Star size={13} fill="currentColor" /> {reviewData.summary.average.toFixed(1)}</span>
+                <span>{reviewData.summary.count.toLocaleString("en-IN")} review{reviewData.summary.count === 1 ? "" : "s"}</span>
+              </a>
+            )}
 
             <div className="sf-price">
               <strong>{money(product.price)}</strong>
@@ -653,16 +650,7 @@ function ProductPage() {
           </div>
         </section>
 
-        <section className="sf-section sf-ratings" id="ratings">
-          <h2>Ratings</h2>
-          <div className="sf-ratingbox">
-            <strong>{product.rating}<small>/5</small></strong>
-            <div>
-              <span className="sf-starrow" aria-hidden="true">{[1, 2, 3, 4, 5].map((n) => <Star key={n} size={18} fill={n <= Math.round(product.rating) ? "currentColor" : "none"} />)}</span>
-              <span>Based on {product.reviewCount.toLocaleString("en-IN")} ratings</span>
-            </div>
-          </div>
-        </section>
+        <ReviewsSection data={reviewData} />
       </main>
 
       <footer className="sf-footer">
