@@ -21,6 +21,8 @@ export interface Product {
   stock: number;
   images: string[];
   highlights: string[];
+  bogoEnabled: boolean;
+  reviewsEnabled: boolean;
 }
 
 export interface ProductInput {
@@ -45,6 +47,8 @@ export interface ProductInput {
   stock: number;
   images: string[];
   highlights: string[];
+  bogoEnabled?: boolean;
+  reviewsEnabled?: boolean;
 }
 
 export interface ProductUpdate {
@@ -69,6 +73,8 @@ export interface ProductUpdate {
   stock?: number;
   images?: string[];
   highlights?: string[];
+  bogoEnabled?: boolean;
+  reviewsEnabled?: boolean;
 }
 
 export type OrderPaymentMethod = typeof OrderPaymentMethod[keyof typeof OrderPaymentMethod];
@@ -95,6 +101,7 @@ export interface Order {
   productId: string;
   productName: string;
   quantity: number;
+  freeQuantity?: number;
   total: number;
   paymentMethod: OrderPaymentMethod;
   status: OrderStatus;
