@@ -28,6 +28,10 @@ export const productsTable = pgTable("products", {
   stock: integer("stock").notNull(),
   images: text("images").array().notNull(),
   highlights: text("highlights").array().notNull(),
+  // Buy 1 get 1 free: the admin switches it on or off per product.
+  bogoEnabled: boolean("bogo_enabled").notNull().default(true),
+  // Customers can leave a review for this product (the store-wide switch must be on too).
+  reviewsEnabled: boolean("reviews_enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .defaultNow()
     .notNull(),
@@ -63,6 +67,8 @@ export const ordersTable = pgTable("orders", {
   // Where the customer wants a refund sent (asked when they request a return).
   refundUpi: text("refund_upi"),
   returnRequestedAt: timestamp("return_requested_at", { withTimezone: true, mode: "date" }),
+  // Buy 1 get 1 free: units given free with this order (0 when the product had no offer). Units shipped = quantity + free.
+  freeQuantity: integer("free_quantity").notNull().default(0),
 }, (table) => [uniqueIndex("orders_transaction_id_key").on(table.transactionId)]);
 
 // Every "money received" notification sent by the listener app. Also the dedupe table (id = event id).
@@ -114,3 +120,9 @@ export const reviewsTable = pgTable("reviews", {
   status: text("status").notNull(), // published | hidden
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
 }, (table) => [uniqueIndex("reviews_order_id_key").on(table.orderId)]);
+
+// Store-wide switches the admin can flip (key/value). Example: reviews_enabled = "true" | "false".
+export const storeSettingsTable = pgTable("store_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
