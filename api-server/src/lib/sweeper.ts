@@ -20,9 +20,9 @@ export const cancelExpiredUpiOrders = async (): Promise<number> => {
         sql`${ordersTable.paidAt} IS NULL`,
         lt(ordersTable.createdAt, cutoff),
       ))
-      .returning({ productId: ordersTable.productId, quantity: ordersTable.quantity });
+      .returning({ productId: ordersTable.productId, quantity: ordersTable.quantity, freeQuantity: ordersTable.freeQuantity });
     const perProduct = new Map<string, number>();
-    for (const row of cancelled) perProduct.set(row.productId, (perProduct.get(row.productId) ?? 0) + row.quantity);
+    for (const row of cancelled) perProduct.set(row.productId, (perProduct.get(row.productId) ?? 0) + row.quantity + row.freeQuantity);
     for (const [productId, units] of perProduct) {
       await tx.update(productsTable).set({ stock: sql`${productsTable.stock} + ${units}` }).where(eq(productsTable.id, productId));
     }
