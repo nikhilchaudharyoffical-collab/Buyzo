@@ -4,7 +4,8 @@ export type AdminReview = { id: string; orderId: string; name: string; rating: n
 
 const when = (value: string) => new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
 
-export function ReviewsView({ reviews, loading, error, pending, onVisibility, onDelete }: {
+export function ReviewsView({ reviewsEnabled, onToggleReviews, switching, reviews, loading, error, pending, onVisibility, onDelete }: {
+  reviewsEnabled?: boolean; onToggleReviews: (enabled: boolean) => void; switching: boolean;
   reviews: AdminReview[]; loading: boolean; error: Error | null; pending: boolean;
   onVisibility: (variables: { id: string; hidden: boolean }) => void; onDelete: (id: string) => void;
 }) {
@@ -12,6 +13,11 @@ export function ReviewsView({ reviews, loading, error, pending, onVisibility, on
   return (
     <div className="bd-content">
       <div className="bd-page-intro"><div><h2>Customer reviews</h2><p>Reviews go live as soon as a delivered-order customer posts them. Hide anything that doesn't belong, or delete it.</p></div><span className="bd-chip ok">{live} live · {reviews.length - live} hidden</span></div>
+      <label className={`bd-switch-row card ${reviewsEnabled === false ? "off" : ""}`}>
+        <input type="checkbox" checked={reviewsEnabled !== false} disabled={reviewsEnabled === undefined || switching} onChange={(event) => onToggleReviews(event.target.checked)} />
+        <span className="bd-switch" aria-hidden="true" />
+        <span><strong>Collect new reviews: {reviewsEnabled === false ? "OFF" : "ON"}</strong><small>{reviewsEnabled === false ? "Customers can't review any product right now. Existing reviews stay visible." : "Customers with a delivered order can review. Turn it off per product in Products → Edit."}</small></span>
+      </label>
       {error ? <div className="bd-state error">{error.message}</div> : loading ? <div className="bd-state">Loading reviews...</div> : !reviews.length ? (
         <div className="bd-empty"><MessageSquareText size={22} /><span>No reviews yet. Customers can review after their order is Delivered.</span></div>
       ) : (

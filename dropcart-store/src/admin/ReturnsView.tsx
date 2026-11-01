@@ -98,7 +98,7 @@ function Card({ order, filter, pending, onDecision, onRefund }: {
       <header>
         <div>
           <strong>{order.productName}</strong>
-          <small>#{order.id} · {order.quantity} unit{order.quantity === 1 ? "" : "s"}</small>
+          <small>#{order.id} · {order.quantity} unit{order.quantity === 1 ? "" : "s"}{(order.freeQuantity ?? 0) > 0 ? ` + ${order.freeQuantity} free` : ""}</small>
         </div>
         <span className={`bd-chip ${chip.tone}`}>{chip.text}</span>
       </header>

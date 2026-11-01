@@ -138,7 +138,7 @@ function paint(ctx: CanvasRenderingContext2D, order: Order, logo: HTMLImageEleme
   const itemY = y;
   add(() => {
     itemLines.forEach((line, i) => text(line, left, itemY + i * 22, `600 16px ${FONT}`, "#17251f"));
-    text(String(order.quantity), colQty, itemY, `600 16px ${FONT}`, "#17251f", "center");
+    text((order.freeQuantity ?? 0) > 0 ? `${order.quantity} + ${order.freeQuantity} free` : String(order.quantity), colQty, itemY, `600 16px ${FONT}`, "#17251f", "center");
     text(money(order.total), right, itemY, `700 16px ${FONT}`, "#17251f", "right");
   });
   y += itemLines.length * 22 + 10;
@@ -274,7 +274,7 @@ export function OrderReceipt({ order, onClose, onStatus, pending = false }: {
 
           <section className="bd-receipt-items">
             <div className="bd-receipt-row head"><span>ITEM</span><span>QTY</span><span>AMOUNT</span></div>
-            <div className="bd-receipt-row"><strong>{order.productName}</strong><span>{order.quantity}</span><strong>{money(order.total)}</strong></div>
+            <div className="bd-receipt-row"><strong>{order.productName}</strong><span>{order.quantity}{(order.freeQuantity ?? 0) > 0 ? ` + ${order.freeQuantity} free` : ""}</span><strong>{money(order.total)}</strong></div>
           </section>
 
           <dl className="bd-receipt-details">
