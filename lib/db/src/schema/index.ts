@@ -101,3 +101,16 @@ export const listenerHeartbeatsTable = pgTable("listener_heartbeats", {
   batteryExempt: boolean("battery_exempt"),
   pending: integer("pending"),
 });
+
+// Customer reviews. One per delivered order, so every review is from a verified buyer.
+export const reviewsTable = pgTable("reviews", {
+  id: text("id").primaryKey(),
+  orderId: text("order_id").notNull(),
+  productId: text("product_id").notNull(),
+  displayName: text("display_name").notNull(), // "Devesh K." (first name + last initial)
+  rating: integer("rating").notNull(),
+  body: text("body").notNull(),
+  avatar: text("avatar"), // small square JPEG as a data URL, optional
+  status: text("status").notNull(), // published | hidden
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
+}, (table) => [uniqueIndex("reviews_order_id_key").on(table.orderId)]);
