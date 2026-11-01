@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Check, PackageCheck, X } from "lucide-react";
+import { Camera, Check, PackageCheck, Star, X } from "lucide-react";
 import { customFetch, type Order } from "@workspace/api-client-react";
 import { deviceHeaders, notifyOrdersChanged, ORDERS_CHANGED } from "@/lib/device";
+import { notifyReviewsChanged, resizeAvatar } from "@/lib/reviews";
 
-type MyOrder = Order & { canCancel: boolean; canReturn: boolean; returnWindowDays: number };
+type MyOrder = Order & { canCancel: boolean; canReturn: boolean; returnWindowDays: number; canReview?: boolean; reviewed?: boolean };
 
 const money = (value: number) => `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 const day = (value: string | Date) => new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(new Date(value));
@@ -14,13 +15,16 @@ const errorText = (error: unknown) =>
   ((error as { data?: { error?: string } } | null)?.data?.error) ?? "Something went wrong. Please try again.";
 
 function OrderCard({ order, onChanged }: { order: MyOrder; onChanged: () => void }) {
-  const [mode, setMode] = useState<"idle" | "cancel" | "return">("idle");
+  const [mode, setMode] = useState<"idle" | "cancel" | "return" | "review">("idle");
+  const [stars, setStars] = useState(0);
+  const [reviewText, setReviewText] = useState("");
+  const [avatar, setAvatar] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [upiId, setUpiId] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
-  const act = async (path: "cancel" | "return", body?: unknown) => {
+  const act = async (path: "cancel" | "return" | "review", body?: unknown) => {
     setBusy(true);
     setMessage("");
     try {
@@ -30,6 +34,7 @@ function OrderCard({ order, onChanged }: { order: MyOrder; onChanged: () => void
         ...(body ? { body: JSON.stringify(body) } : {}),
       });
       setMode("idle");
+      if (path === "review") notifyReviewsChanged();
       onChanged();
     } catch (error) {
       setMessage(errorText(error));
@@ -74,10 +79,46 @@ function OrderCard({ order, onChanged }: { order: MyOrder; onChanged: () => void
 
       {message && <p className="form-error">{message}</p>}
 
-      {mode === "idle" && (order.canCancel || order.canReturn) && (
+      {order.reviewed && <p className="myo-note good">Thanks for your review. It's live on the product page.</p>}
+
+      {mode === "idle" && (order.canCancel || order.canReturn || order.canReview) && (
         <div className="myo-actions">
+          {order.canReview && <button type="button" className="primary-button" onClick={() => setMode("review")}>Write a review</button>}
           {order.canCancel && <button type="button" className="secondary-button" onClick={() => setMode("cancel")}>Cancel order</button>}
           {order.canReturn && <button type="button" className="secondary-button" onClick={() => setMode("return")}>Return order</button>}
+        </div>
+      )}
+      {mode === "review" && (
+        <div className="myo-confirm">
+          <span className="field-label">Your rating</span>
+          <div className="myo-starpick" role="radiogroup" aria-label="Rating">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button key={n} type="button" role="radio" aria-checked={stars === n} aria-label={`${n} star${n === 1 ? "" : "s"}`} className={n <= stars ? "on" : ""} onClick={() => setStars(n)}>
+                <Star size={26} fill={n <= stars ? "currentColor" : "none"} />
+              </button>
+            ))}
+          </div>
+          <label className="field-label" htmlFor={`rv-${order.id}`}>Your review</label>
+          <textarea id={`rv-${order.id}`} value={reviewText} onChange={(event) => setReviewText(event.target.value)} maxLength={600} placeholder="How is the product? Tell other buyers in a few words" />
+          <span className="field-label">Your photo (optional)</span>
+          <div className="myo-photo">
+            {avatar ? <img src={avatar} alt="Your profile photo" /> : <span className="myo-photo-empty"><Camera size={20} /></span>}
+            <label className="secondary-button">
+              {avatar ? "Change photo" : "Add photo"}
+              <input type="file" accept="image/*" hidden onChange={async (event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (!file) return;
+                try { setAvatar(await resizeAvatar(file)); setMessage(""); } catch (error) { setMessage((error as Error).message); }
+              }} />
+            </label>
+            {avatar && <button type="button" className="myo-link" onClick={() => setAvatar(null)}>Remove</button>}
+          </div>
+          <small className="myo-hint">Your review shows your first name and last initial, with "Verified buyer".</small>
+          <div className="myo-actions">
+            <button type="button" className="primary-button" disabled={busy || stars === 0 || reviewText.trim().length < 5} onClick={() => void act("review", { rating: stars, body: reviewText.trim(), avatar })}>{busy ? "Posting..." : "Post review"}</button>
+            <button type="button" className="secondary-button" disabled={busy} onClick={() => setMode("idle")}>Back</button>
+          </div>
         </div>
       )}
       {mode === "cancel" && (
