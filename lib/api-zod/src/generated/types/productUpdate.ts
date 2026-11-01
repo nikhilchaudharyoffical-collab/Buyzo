@@ -28,4 +28,6 @@ export interface ProductUpdate {
   stock?: number;
   images?: string[];
   highlights?: string[];
+  bogoEnabled?: boolean;
+  reviewsEnabled?: boolean;
 }

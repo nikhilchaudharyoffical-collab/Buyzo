@@ -18,4 +18,6 @@ export interface Product {
   stock: number;
   images: string[];
   highlights: string[];
+  bogoEnabled: boolean;
+  reviewsEnabled: boolean;
 }

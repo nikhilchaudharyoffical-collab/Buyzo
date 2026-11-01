@@ -13,6 +13,7 @@ export interface Order {
   productId: string;
   productName: string;
   quantity: number;
+  freeQuantity?: number;
   total: number;
   paymentMethod: OrderPaymentMethod;
   status: OrderStatus;

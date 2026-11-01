@@ -28,4 +28,6 @@ export interface ProductInput {
   stock: number;
   images: string[];
   highlights: string[];
+  bogoEnabled?: boolean;
+  reviewsEnabled?: boolean;
 }
