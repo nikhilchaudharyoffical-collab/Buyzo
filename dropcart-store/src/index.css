@@ -998,3 +998,25 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
 .myo-photo-empty { display: grid; place-items: center; background: #f0f0ec; color: #8a8e94; }
 .myo-photo label.secondary-button { cursor: pointer; min-height: 38px; font-size: 12px; }
 .myo-link { border: 0; background: none; color: #b3261e; font-size: 12px; font-weight: 700; text-decoration: underline; }
+
+/* ===== Buy 1 Get 1 Free (per product, switched on in admin) ===== */
+.bogo-badge { font-weight: 700; }
+.sf-bogo { position: absolute; left: 14px; bottom: 14px; z-index: 2; gap: 6px; padding: 7px 12px; border-radius: 99px; background: var(--sf-brand); color: #fff; font-size: 12.5px; box-shadow: 0 4px 12px rgba(108,86,231,.32); min-width: 150px; justify-content: center; }
+.sf-bogo-strip { display: flex; justify-content: center; gap: 7px; width: 100%; box-sizing: border-box; padding: 9px 12px; margin: 0 0 10px; border-radius: 10px; background: #f1eefe; color: var(--sf-brand-deep); border: 1px dashed rgba(108,86,231,.45); font-size: 14px; }
+.sf-bogo-mini { color: var(--sf-brand); font-size: 11.5px; line-height: 1.2; }
+@media (max-width: 640px) {
+  .sf-buy .sf-bogo-strip { display: none; }
+  .sf-bogo { left: 10px; bottom: 26px; font-size: 11.5px; padding: 6px 10px; min-width: 138px; }
+}
+.checkout-bogo { display: flex; align-items: center; gap: 8px; margin: -10px 0 18px; padding: 9px 11px; border-radius: 10px; font-size: 12px; line-height: 1.35; }
+.checkout-bogo.on { background: #ecf8f3; color: #0b6b49; border: 1px solid #c4e8da; }
+.checkout-bogo.off { background: #f5f5f2; color: #7b7f85; border: 1px solid #ebebe6; }
+.checkout-bogo svg { flex: none; }
+.invoice-item.free { border-top: 1px dashed #e4e4de; background: #f6fbf8; }
+.invoice-item.free small { display: inline-flex; align-items: center; gap: 4px; color: #0b6b49; }
+.invoice-item strong.free { color: #0b6b49; letter-spacing: .06em; font-size: 11px; }
+.invoice-bogo { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; padding: 9px 11px; border-radius: 10px; font-size: 11.5px; line-height: 1.4; }
+.invoice-bogo svg { flex: none; margin-top: 1px; }
+.invoice-bogo.on { background: #ecf8f3; color: #0b6b49; }
+.invoice-bogo.off { background: #f5f5f2; color: #7b7f85; }
+@media (prefers-reduced-motion: reduce) { .bogo-badge-text { animation: none; } }

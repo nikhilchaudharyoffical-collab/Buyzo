@@ -117,6 +117,23 @@ function AppHeader({ onMenu }: { onMenu?: () => void }) {
   );
 }
 
+/** "Buy 1 Get 1 Free" in English and Hindi, swapping every couple of seconds. Only rendered for products that have the offer. */
+function BogoBadge({ className = "", icon = true }: { className?: string; icon?: boolean }) {
+  const phrases = ["Buy 1 Get 1 Free", "1 खरीदो, 1 मुफ़्त पाओ"];
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = setInterval(() => setIndex((current) => (current + 1) % phrases.length), 2400);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <span className={`bogo-badge ${className}`}>
+      {icon && <Gift size={13} />}
+      <span className="bogo-badge-text" key={index}>{phrases[index]}</span>
+    </span>
+  );
+}
+
 function ProductGallery({ product }: { product: Product }) {
   const [active, setActive] = useState(0);
   const touchStartX = useState({ current: 0 })[0];
@@ -146,6 +163,7 @@ function ProductGallery({ product }: { product: Product }) {
         <img src={product.images[active]} alt={`${product.name}, photo ${active + 1} of ${count}`} />
         {discountPercent > 0 && <span className="sf-off">{discountPercent}% off</span>}
         <span className="sf-new">Just dropped</span>
+        {product.bogoEnabled && <BogoBadge className="sf-bogo" />}
         {count > 1 && (
           <>
             <button type="button" className="sf-arrow prev" aria-label="Previous photo" onClick={() => goTo(active - 1)}><ChevronLeft size={20} /></button>
@@ -168,6 +186,8 @@ type InvoiceData = {
   address: string;
   product: Product;
   quantity: number;
+  freeQuantity: number; // Buy 1 Get 1 free units (0 when the product has no offer)
+  bogo: boolean; // does this product have the offer
   subtotal: number;
   discount: number;
   rounding?: number; // UPI: unique paise taken off so the payment can be recognised
@@ -206,6 +226,20 @@ function InvoiceCard({ d }: { d: InvoiceData }) {
           <span>{d.quantity}</span>
           <strong>{money(d.subtotal)}</strong>
         </div>
+        {d.freeQuantity > 0 ? (
+          <div className="invoice-item free">
+            <img src={d.product.images[0]} alt="" />
+            <div><strong>{d.product.name}</strong><small><Gift size={11} /> Buy 1 Get 1 Free</small></div>
+            <span>{d.freeQuantity}</span>
+            <strong className="free">FREE</strong>
+          </div>
+        ) : null}
+      </div>
+      <div className={`invoice-bogo ${d.freeQuantity > 0 ? "on" : "off"}`}>
+        <Gift size={14} />
+        {d.freeQuantity > 0
+          ? <span><strong>Buy 1 Get 1 Free applied.</strong> You receive {d.quantity + d.freeQuantity} units in total, {d.freeQuantity} of them free.</span>
+          : <span><strong>Buy 1 Get 1 Free: not available</strong> on this product.</span>}
       </div>
       <dl className="invoice-totals">
         <div><dt>Subtotal</dt><dd>{money(d.subtotal)}</dd></div>
@@ -249,6 +283,8 @@ function PurchaseModal({
   const trackEvent = useTrackAnalyticsEvent();
   const isUpi = payment === OrderInputPaymentMethod.UPI;
   const subtotal = product.price * quantity;
+  const freeQuantity = product.bogoEnabled ? quantity : 0; // Buy 1 Get 1: one free unit for every unit bought
+  const maxQuantity = Math.max(1, product.bogoEnabled ? Math.floor(product.stock / 2) : product.stock);
   const UPI_DISCOUNT_RATE = 0.015; // 1.5% real discount applied when UPI is selected
   const upiDiscount = isUpi ? Math.round(subtotal * UPI_DISCOUNT_RATE) : 0;
   const total = subtotal - upiDiscount;
@@ -335,6 +371,8 @@ function PurchaseModal({
         address: confirmed.address,
         product,
         quantity: confirmed.quantity,
+        freeQuantity: confirmed.freeQuantity ?? 0,
+        bogo: (confirmed.freeQuantity ?? 0) > 0,
         subtotal: product.price * confirmed.quantity,
         ...(() => {
           const gross = product.price * confirmed.quantity;
@@ -347,7 +385,7 @@ function PurchaseModal({
         payment: confirmed.paymentMethod as OrderInputPaymentMethod,
         deliveryDate: confirmed.deliveryDate,
       }
-    : { number: null, date: new Date(), name, contact, address, product, quantity, subtotal, discount: upiDiscount, total, payment, deliveryDate };
+    : { number: null, date: new Date(), name, contact, address, product, quantity, freeQuantity, bogo: product.bogoEnabled, subtotal, discount: upiDiscount, total, payment, deliveryDate };
   const confirmedUpi = confirmed?.paymentMethod === OrderInputPaymentMethod.UPI;
 
   return (
@@ -409,6 +447,12 @@ function PurchaseModal({
               <div><strong>{product.name}</strong><span>{money(product.price)} each</span></div>
               <strong>{money(subtotal)}</strong>
             </div>
+            <div className={`checkout-bogo ${product.bogoEnabled ? "on" : "off"}`}>
+              <Gift size={15} />
+              {product.bogoEnabled
+                ? <span><strong>Buy 1 Get 1 Free</strong> · you get {quantity + freeQuantity} units, {freeQuantity} free</span>
+                : <span>Buy 1 Get 1 Free is not available on this product</span>}
+            </div>
             <form onSubmit={goToPayment}>
               <div className="field-grid">
                 <label>Full name<input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" /></label>
@@ -422,11 +466,11 @@ function PurchaseModal({
               <div className="checkout-row">
                 <div>
                   <span className="field-label">Quantity</span>
-                  <div className="stepper"><button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))}>−</button><strong>{quantity}</strong><button type="button" onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}>+</button></div>
+                  <div className="stepper"><button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))}>−</button><strong>{quantity}</strong><button type="button" onClick={() => setQuantity(Math.min(maxQuantity, quantity + 1))}>+</button></div>
                 </div>
                 <div className="delivery-preview"><span className="field-label">Estimated delivery</span><strong>{formatDate(getDeliveryDate(10))}</strong><span>Pay by UPI to get it by {formatDate(getDeliveryDate(5))}</span></div>
               </div>
-              <div className="order-total"><span>Subtotal</span><strong>{money(subtotal)}</strong></div>
+              <div className="order-total"><span>Subtotal{freeQuantity > 0 ? ` · ${quantity + freeQuantity} units` : ""}</span><strong>{money(subtotal)}</strong></div>
               <button className="primary-button wide">Continue to payment <ArrowRight size={17} /></button>
             </form>
           </>
@@ -541,7 +585,8 @@ function ProductPage() {
   if (isError || !product) return <div className="sf-state"><Package size={30} /><h2>This product isn't available right now</h2><p>We're updating the store. Please check back in a few minutes.</p></div>;
 
   const discountPercent = Math.round((1 - product.price / product.compareAtPrice) * 100);
-  const soldOut = product.stock <= 0;
+  // With Buy 1 Get 1 every order needs two units, so a single unit left can't be sold.
+  const soldOut = product.stock < (product.bogoEnabled ? 2 : 1);
   const openCheckout = () => {
     trackEvent.mutate({ data: { type: "click", productId: product.id } });
     setCheckoutOpen(true);
@@ -582,7 +627,7 @@ function ProductPage() {
             <div className="sf-offers">
               <h2>Offers</h2>
               <ul>
-                <li><Gift size={16} /><span><strong>Buy 1, get 1 free</strong> on this product</span></li>
+                {product.bogoEnabled && <li><Gift size={16} /><span><strong>Buy 1, get 1 free</strong> on this product</span></li>}
                 <li><Percent size={16} /><span><strong>Extra 1.5% off</strong> when you pay with UPI</span></li>
                 <li><Truck size={16} /><span><strong>Free delivery</strong> on every order</span></li>
               </ul>
@@ -604,6 +649,7 @@ function ProductPage() {
               {soldOut ? "Out of stock" : product.stock <= 10 ? `Only ${product.stock} left in stock` : "In stock"}
             </p>
 
+            {product.bogoEnabled && !soldOut && <BogoBadge className="sf-bogo-strip" />}
             <button className="sf-cta" onClick={openCheckout} disabled={soldOut}>{soldOut ? "Out of stock" : "Buy now"}</button>
             <p className="sf-cta-note"><LockKeyhole size={13} /> Pay by UPI or cash on delivery. No account needed.</p>
 
@@ -663,7 +709,7 @@ function ProductPage() {
       </footer>
 
       <div className="sf-sticky">
-        <div><small>Price</small><strong>{money(product.price)}</strong></div>
+        <div><small>Price</small><strong>{money(product.price)}</strong>{product.bogoEnabled && !soldOut && <BogoBadge className="sf-bogo-mini" icon={false} />}</div>
         <button className="sf-cta" onClick={openCheckout} disabled={soldOut}>{soldOut ? "Out of stock" : "Buy now"}</button>
       </div>
       {isCheckoutOpen && <PurchaseModal product={product} onClose={() => setCheckoutOpen(false)} />}
