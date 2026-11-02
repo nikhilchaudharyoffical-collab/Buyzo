@@ -23,6 +23,8 @@ export interface Product {
   highlights: string[];
   bogoEnabled: boolean;
   reviewsEnabled: boolean;
+  upiDiscountPercent: number;
+  upiDiscountUpTo?: number | null;
 }
 
 export interface ProductInput {
@@ -49,6 +51,8 @@ export interface ProductInput {
   highlights: string[];
   bogoEnabled?: boolean;
   reviewsEnabled?: boolean;
+  upiDiscountPercent?: number;
+  upiDiscountUpTo?: number | null;
 }
 
 export interface ProductUpdate {
@@ -75,6 +79,8 @@ export interface ProductUpdate {
   highlights?: string[];
   bogoEnabled?: boolean;
   reviewsEnabled?: boolean;
+  upiDiscountPercent?: number;
+  upiDiscountUpTo?: number | null;
 }
 
 export type OrderPaymentMethod = typeof OrderPaymentMethod[keyof typeof OrderPaymentMethod];
