@@ -474,13 +474,13 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
 .invoice-parties small { color: #6f7378; font-size: 11px; line-height: 1.5; }
 .invoice-address { white-space: pre-line; display: block; }
 .invoice-items { border: 1px solid #eeeeea; border-radius: 12px; overflow: hidden; }
-.invoice-items-head, .invoice-item { display: grid; grid-template-columns: 1fr 38px 78px; gap: 8px; align-items: center; padding: 9px 11px; }
+.invoice-items-head, .invoice-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 11px; }
 .invoice-items-head { background: #f7f7f3; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; font-weight: 800; color: #93979d; }
-.invoice-items-head span:not(:first-child), .invoice-item > span, .invoice-item > strong { text-align: right; }
-.invoice-item { grid-template-columns: 1fr 38px 78px; font-size: 12px; position: relative; padding-left: 62px; min-height: 58px; }
+.invoice-items-head span:not(:first-child), .invoice-item > .amt { text-align: right; white-space: nowrap; }
+.invoice-item { grid-template-columns: minmax(0, 1fr) auto; font-size: 12px; position: relative; padding-left: 62px; min-height: 58px; }
 .invoice-item img { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 8px; object-fit: cover; }
 .invoice-item div strong { display: block; font-size: 12px; }
-.invoice-item small { color: #92969b; font-size: 10px; }
+.invoice-item small { color: #92969b; font-size: 10px; display: block; line-height: 1.35; }
 .invoice-items-head span:first-child { padding-left: 51px; }
 .invoice-totals { margin: 12px 0 0; display: grid; gap: 7px; }
 .invoice-totals > div { display: flex; justify-content: space-between; font-size: 12px; color: #5f6368; }
@@ -1013,10 +1013,15 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
 .checkout-bogo.off { background: #f5f5f2; color: #7b7f85; border: 1px solid #ebebe6; }
 .checkout-bogo svg { flex: none; }
 .invoice-item.free { border-top: 1px dashed #e4e4de; background: #f6fbf8; }
-.invoice-item.free small { display: inline-flex; align-items: center; gap: 4px; color: #0b6b49; }
-.invoice-item strong.free { color: #0b6b49; letter-spacing: .06em; font-size: 11px; }
+.invoice-item.free small { display: flex; justify-content: flex-start; align-items: center; gap: 4px; color: #0b6b49; }
+.invoice-item .amt.free { color: #0b6b49; letter-spacing: .06em; font-size: 11px; }
 .invoice-bogo { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; padding: 9px 11px; border-radius: 10px; font-size: 11.5px; line-height: 1.4; }
 .invoice-bogo svg { flex: none; margin-top: 1px; }
 .invoice-bogo.on { background: #ecf8f3; color: #0b6b49; }
 .invoice-bogo.off { background: #f5f5f2; color: #7b7f85; }
 @media (prefers-reduced-motion: reduce) { .bogo-badge-text { animation: none; } }
+
+/* Small "INDIA" mark in the top corner of the store logo */
+.sf-brand { position: relative; }
+.sf-brand-india { position: absolute; top: -1px; right: -26px; font-size: 7px; font-weight: 700; letter-spacing: .16em; line-height: 1; color: var(--sf-muted, #6b7078); text-transform: uppercase; pointer-events: none; }
+@media (max-width: 640px) { .sf-brand-india { font-size: 6px; right: -22px; } }

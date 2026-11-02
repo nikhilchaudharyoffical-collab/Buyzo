@@ -103,6 +103,7 @@ function AppHeader({ onMenu }: { onMenu?: () => void }) {
       <div className="sf-header-in">
         <button className="sf-brand" onClick={() => navigate("/")} aria-label="BuyDo home">
           <img className="sf-brand-logo" src={`${import.meta.env.BASE_URL}brand/logo.png`} alt="BuyDo" />
+          <span className="sf-brand-india" aria-label="India">INDIA</span>
         </button>
         <nav className="sf-nav" aria-label="Page sections">
           <a href="#details">About the product</a>
@@ -230,19 +231,17 @@ function InvoiceCard({ d }: { d: InvoiceData }) {
         <div><span className="field-label">Ship to</span><small className="invoice-address">{d.address}</small></div>
       </div>
       <div className="invoice-items">
-        <div className="invoice-items-head"><span>Item</span><span>Qty</span><span>Amount</span></div>
+        <div className="invoice-items-head"><span>Item</span><span>Amount</span></div>
         <div className="invoice-item">
           <img src={d.product.images[0]} alt="" />
-          <div><strong>{d.product.name}</strong><small>{money(d.product.price)} each</small></div>
-          <span>{d.quantity}</span>
-          <strong>{money(d.subtotal)}</strong>
+          <div><strong>{d.product.name}</strong><small>{money(d.product.price)} each · Qty {d.quantity}</small></div>
+          <strong className="amt">{money(d.subtotal)}</strong>
         </div>
         {d.freeQuantity > 0 ? (
           <div className="invoice-item free">
             <img src={d.product.images[0]} alt="" />
-            <div><strong>{d.product.name}</strong><small><Gift size={11} /> Buy 1 Get 1 Free</small></div>
-            <span>{d.freeQuantity}</span>
-            <strong className="free">FREE</strong>
+            <div><strong>{d.product.name}</strong><small><Gift size={11} /> Buy 1 Get 1 Free · Qty {d.freeQuantity}</small></div>
+            <strong className="amt free">FREE</strong>
           </div>
         ) : null}
       </div>
