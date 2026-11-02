@@ -190,10 +190,21 @@ type InvoiceData = {
   bogo: boolean; // does this product have the offer
   subtotal: number;
   discount: number;
+  upiPercent: number; // the product's UPI discount, for the invoice label
   rounding?: number; // UPI: unique paise taken off so the payment can be recognised
   total: number;
   payment: OrderInputPaymentMethod;
   deliveryDate: string | Date;
+};
+
+/** 1.5 -> "1.5", 5 -> "5" */
+const fmtPct = (value: number) => String(Math.round(value * 100) / 100);
+/** UPI discount for a product: what is really given, and the text shown on the store ("5% off" or "Up to 8% off"). */
+const upiOffer = (product: Product) => {
+  const actual = product.upiDiscountPercent ?? 0;
+  const upTo = product.upiDiscountUpTo != null && product.upiDiscountUpTo > actual ? product.upiDiscountUpTo : null;
+  const shown = upTo ?? actual;
+  return { actual, active: actual > 0 || !!upTo, shown, short: `${upTo ? "Up to " : ""}${fmtPct(shown)}% off`, extra: `${upTo ? "Up to " : "Extra "}${fmtPct(shown)}% off` };
 };
 
 const formatLongDate = (date: string | Date) =>
@@ -243,7 +254,7 @@ function InvoiceCard({ d }: { d: InvoiceData }) {
       </div>
       <dl className="invoice-totals">
         <div><dt>Subtotal</dt><dd>{money(d.subtotal)}</dd></div>
-        {d.discount > 0 && <div className="save"><dt>UPI discount (1.5%)</dt><dd>−{money(d.discount)}</dd></div>}
+        {d.discount > 0 && <div className="save"><dt>UPI discount ({fmtPct(d.upiPercent)}%)</dt><dd>−{money(d.discount)}</dd></div>}
         {(d.rounding ?? 0) > 0 && <div className="save"><dt>UPI exact-amount adjustment</dt><dd>−{money(d.rounding!)}</dd></div>}
         <div><dt>Delivery</dt><dd className="free">Free</dd></div>
         <div className="grand"><dt>Total payable</dt><dd>{money(d.total)}</dd></div>
@@ -285,8 +296,8 @@ function PurchaseModal({
   const subtotal = product.price * quantity;
   const freeQuantity = product.bogoEnabled ? quantity : 0; // Buy 1 Get 1: one free unit for every unit bought
   const maxQuantity = Math.max(1, product.bogoEnabled ? Math.floor(product.stock / 2) : product.stock);
-  const UPI_DISCOUNT_RATE = 0.015; // 1.5% real discount applied when UPI is selected
-  const upiDiscount = isUpi ? Math.round(subtotal * UPI_DISCOUNT_RATE) : 0;
+  const offer = upiOffer(product);
+  const upiDiscount = isUpi ? Math.round(subtotal * (offer.actual / 100)) : 0; // the percent the admin set for this product
   const total = subtotal - upiDiscount;
   const deliveryDate = getDeliveryDate(isUpi ? 5 : 10);
 
@@ -377,15 +388,16 @@ function PurchaseModal({
         ...(() => {
           const gross = product.price * confirmed.quantity;
           const isUpiOrder = confirmed.paymentMethod === OrderInputPaymentMethod.UPI;
-          const discount = isUpiOrder ? Math.round(gross * UPI_DISCOUNT_RATE) : Math.max(0, gross - confirmed.total);
+          const discount = isUpiOrder ? Math.round(gross * (offer.actual / 100)) : Math.max(0, gross - confirmed.total);
           const rounding = Math.max(0, Math.round((gross - discount - confirmed.total) * 100) / 100);
           return { discount, rounding };
         })(),
         total: confirmed.total,
+        upiPercent: offer.actual,
         payment: confirmed.paymentMethod as OrderInputPaymentMethod,
         deliveryDate: confirmed.deliveryDate,
       }
-    : { number: null, date: new Date(), name, contact, address, product, quantity, freeQuantity, bogo: product.bogoEnabled, subtotal, discount: upiDiscount, total, payment, deliveryDate };
+    : { number: null, date: new Date(), name, contact, address, product, quantity, freeQuantity, bogo: product.bogoEnabled, subtotal, discount: upiDiscount, upiPercent: offer.actual, total, payment, deliveryDate };
   const confirmedUpi = confirmed?.paymentMethod === OrderInputPaymentMethod.UPI;
 
   return (
@@ -422,7 +434,7 @@ function PurchaseModal({
             {confirmedUpi && (
               <div className="success-offers">
                 <span className="success-offers-title">Offers you unlocked</span>
-                <div className="success-offer-row"><Percent size={14} /><span>1.5% UPI discount applied</span><strong>−{money(invoice.discount)}</strong></div>
+                {invoice.discount > 0 && <div className="success-offer-row"><Percent size={14} /><span>{fmtPct(offer.actual)}% UPI discount applied</span><strong>−{money(invoice.discount)}</strong></div>}
                 <div className="success-offer-row"><Truck size={14} /><span>Fast-track delivery</span><strong>5 days</strong></div>
                 <div className="success-offer-row"><Gift size={14} /><span>Cashback credited soon</span><strong>₹50</strong></div>
               </div>
@@ -492,7 +504,7 @@ function PurchaseModal({
               <div className={`upi-card-wrap ${payment === OrderInputPaymentMethod.UPI ? "is-unlocked" : "is-locked"} ${unlocking ? "unlocking" : ""}`}>
                 <div className="upi-offer-strip">
                   {[
-                    { Icon: Percent, label: "1.5% off" },
+                    ...(offer.active ? [{ Icon: Percent, label: offer.short }] : []),
                     { Icon: Truck, label: "5-day delivery" },
                     { Icon: Gift, label: "₹50 cashback" },
                   ].map(({ Icon, label }, i) => (
@@ -522,7 +534,7 @@ function PurchaseModal({
                   </div>
                 )}
                 {unlocking && (
-                  <div key={`t${unlock}`} className="offer-toast"><Sparkles size={13} fill="currentColor" /> 3 offers unlocked</div>
+                  <div key={`t${unlock}`} className="offer-toast"><Sparkles size={13} fill="currentColor" /> {offer.active ? 3 : 2} offers unlocked</div>
                 )}
               </div>
             </div>
@@ -599,7 +611,7 @@ function ProductPage() {
       <div className="sf-topline">
         <span><Truck size={14} /> Free delivery on every order</span>
         <span><RotateCcw size={14} /> 7-day returns</span>
-        <span><Percent size={14} /> Extra 1.5% off when you pay with UPI</span>
+        {upiOffer(product).active && <span><Percent size={14} /> {upiOffer(product).extra} when you pay with UPI</span>}
       </div>
       <AppHeader />
       <main className="sf-main">
@@ -628,7 +640,7 @@ function ProductPage() {
               <h2>Offers</h2>
               <ul>
                 {product.bogoEnabled && <li><Gift size={16} /><span><strong>Buy 1, get 1 free</strong> on this product</span></li>}
-                <li><Percent size={16} /><span><strong>Extra 1.5% off</strong> when you pay with UPI</span></li>
+                {upiOffer(product).active && <li><Percent size={16} /><span><strong>{upiOffer(product).extra}</strong> when you pay with UPI</span></li>}
                 <li><Truck size={16} /><span><strong>Free delivery</strong> on every order</span></li>
               </ul>
             </div>
@@ -691,7 +703,7 @@ function ProductPage() {
             </details>
             <details>
               <summary>Which payment methods can I use?<ChevronRight size={16} /></summary>
-              <p>Pay with any UPI app (PhonePe, Google Pay, Paytm and more) and get an extra 1.5% off, or choose cash on delivery.</p>
+              <p>Pay with any UPI app (PhonePe, Google Pay, Paytm and more) {upiOffer(product).active ? `and get ${upiOffer(product).extra.toLowerCase()}, or choose cash on delivery.` : "or choose cash on delivery."}</p>
             </details>
           </div>
         </section>
