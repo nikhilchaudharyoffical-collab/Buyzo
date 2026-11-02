@@ -30,4 +30,6 @@ export interface ProductUpdate {
   highlights?: string[];
   bogoEnabled?: boolean;
   reviewsEnabled?: boolean;
+  upiDiscountPercent?: number;
+  upiDiscountUpTo?: number | null;
 }
