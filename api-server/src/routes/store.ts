@@ -157,6 +157,8 @@ const toProduct = (row: ProductRow): Product => ({
   highlights: row.highlights,
   bogoEnabled: row.bogoEnabled,
   reviewsEnabled: row.reviewsEnabled,
+  upiDiscountPercent: row.upiDiscountPercent,
+  upiDiscountUpTo: row.upiDiscountUpTo ?? null,
 });
 
 export const toOrder = (row: OrderRow): Order => ({
@@ -222,6 +224,8 @@ export const initializeStore = async (): Promise<void> => {
     // Existing products keep the Buy 1 Get 1 offer they had; the admin can switch it off per product.
     await db.execute(sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS bogo_enabled boolean NOT NULL DEFAULT true`);
     await db.execute(sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS reviews_enabled boolean NOT NULL DEFAULT true`);
+    await db.execute(sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS upi_discount_percent real NOT NULL DEFAULT 1.5`);
+    await db.execute(sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS upi_discount_up_to real`);
     await db.execute(sql`CREATE TABLE IF NOT EXISTS store_settings (key text PRIMARY KEY, value text NOT NULL)`);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS orders_device_hash_idx ON orders (device_hash)`);
     await db.execute(sql`CREATE TABLE IF NOT EXISTS listener_heartbeats (
@@ -375,7 +379,6 @@ class OrderError extends Error {
     super(message);
   }
 }
-const UPI_DISCOUNT_RATE = 0.015;
 const UPI_MAX_OFFSET_PAISE = 99;
 // An exact amount stays reserved this long after the order was placed (payment window + grace + quarantine),
 // so a late payment can never be mistaken for somebody else's order.
@@ -413,7 +416,7 @@ router.post("/orders", rateLimit("orders", 10, 10 * 60_000), async (req, res) =>
       // Price, discount and delivery date are decided by the server, not the browser.
       const isUpi = (input.paymentMethod as string) === "UPI";
       const subtotal = product.price * input.quantity;
-      let total = subtotal - (isUpi ? Math.round(subtotal * UPI_DISCOUNT_RATE) : 0);
+      let total = subtotal - (isUpi ? Math.round(subtotal * (product.upiDiscountPercent / 100)) : 0);
       const now = new Date();
 
       // UPI: take 1-99 paise off so this order has its own exact amount, which is how its payment is recognised.
