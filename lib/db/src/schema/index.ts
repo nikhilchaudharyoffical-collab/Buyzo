@@ -32,6 +32,9 @@ export const productsTable = pgTable("products", {
   bogoEnabled: boolean("bogo_enabled").notNull().default(true),
   // Customers can leave a review for this product (the store-wide switch must be on too).
   reviewsEnabled: boolean("reviews_enabled").notNull().default(true),
+  // Percent taken off when the customer pays by UPI (what is really given), and the optional "up to" number shown on the store.
+  upiDiscountPercent: real("upi_discount_percent").notNull().default(1.5),
+  upiDiscountUpTo: real("upi_discount_up_to"),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .defaultNow()
     .notNull(),
