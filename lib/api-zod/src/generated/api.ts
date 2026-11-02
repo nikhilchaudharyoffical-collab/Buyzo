@@ -33,7 +33,9 @@ export const ListProductsResponseItem = zod.object({
   "images": zod.array(zod.string()),
   "highlights": zod.array(zod.string()),
   "bogoEnabled": zod.boolean(),
-  "reviewsEnabled": zod.boolean()
+  "reviewsEnabled": zod.boolean(),
+  "upiDiscountPercent": zod.number(),
+  "upiDiscountUpTo": zod.number().nullish()
 })
 export const ListProductsResponse = zod.array(ListProductsResponseItem)
 
@@ -69,7 +71,9 @@ export const CreateProductBody = zod.object({
   "images": zod.array(zod.string().url()),
   "highlights": zod.array(zod.string()),
   "bogoEnabled": zod.boolean().optional(),
-  "reviewsEnabled": zod.boolean().optional()
+  "reviewsEnabled": zod.boolean().optional(),
+  "upiDiscountPercent": zod.number().min(0).max(50).optional(),
+  "upiDiscountUpTo": zod.number().min(0).max(100).nullish()
 })
 
 export const CreateProductResponse = zod.object({
@@ -85,7 +89,9 @@ export const CreateProductResponse = zod.object({
   "images": zod.array(zod.string()),
   "highlights": zod.array(zod.string()),
   "bogoEnabled": zod.boolean(),
-  "reviewsEnabled": zod.boolean()
+  "reviewsEnabled": zod.boolean(),
+  "upiDiscountPercent": zod.number(),
+  "upiDiscountUpTo": zod.number().nullish()
 })
 
 
@@ -124,7 +130,9 @@ export const UpdateProductBody = zod.object({
   "images": zod.array(zod.string().url()).optional(),
   "highlights": zod.array(zod.string()).optional(),
   "bogoEnabled": zod.boolean().optional(),
-  "reviewsEnabled": zod.boolean().optional()
+  "reviewsEnabled": zod.boolean().optional(),
+  "upiDiscountPercent": zod.number().min(0).max(50).optional(),
+  "upiDiscountUpTo": zod.number().min(0).max(100).nullish()
 })
 
 export const UpdateProductResponse = zod.object({
@@ -140,7 +148,9 @@ export const UpdateProductResponse = zod.object({
   "images": zod.array(zod.string()),
   "highlights": zod.array(zod.string()),
   "bogoEnabled": zod.boolean(),
-  "reviewsEnabled": zod.boolean()
+  "reviewsEnabled": zod.boolean(),
+  "upiDiscountPercent": zod.number(),
+  "upiDiscountUpTo": zod.number().nullish()
 })
 
 
