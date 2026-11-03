@@ -129,3 +129,11 @@ export const storeSettingsTable = pgTable("store_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
 });
+
+// Record of sensitive admin actions (e.g. fresh-start resets): what was erased, when, and how much.
+export const adminAuditTable = pgTable("admin_audit", {
+  id: text("id").primaryKey(),
+  action: text("action").notNull(),
+  detail: text("detail").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
+});
