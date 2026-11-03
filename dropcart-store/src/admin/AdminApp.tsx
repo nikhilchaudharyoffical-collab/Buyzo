@@ -51,6 +51,7 @@ import type { Order, OrderStatus, Product, ProductInput } from "@workspace/api-c
 import { OrderReceipt } from "./OrderReceipt";
 import { ReturnsView, countReturnWork } from "./ReturnsView";
 import { ReviewsView, type AdminReview } from "./ReviewsView";
+import { FreshStart } from "./FreshStart";
 import "./AdminApp.css";
 
 type Kpis = {
@@ -699,6 +700,7 @@ function ProductsView({ products, loading, error, saveProduct, deleteProduct, pe
 }
 
 function DataTools({ database, loading, error, purge, pending }: { database?: DatabaseOverview; loading: boolean; error: Error | null; purge: (payload: Record<string, unknown>) => Promise<{ deleted: number }>; pending: boolean }) {
+  const queryClient = useQueryClient();
   const [target, setTarget] = useState<"orders" | "analytics">("orders");
   const [age, setAge] = useState("30");
   const [status, setStatus] = useState("");
@@ -734,6 +736,7 @@ function DataTools({ database, loading, error, purge, pending }: { database?: Da
       <div className="bd-db-metrics"><div><span>Products</span><strong>{database.products}</strong></div><div><span>Orders</span><strong>{database.orders}</strong></div><div><span>Analytics days</span><strong>{database.analyticsDays}</strong></div><div><span>Oldest order</span><strong>{database.oldestOrder ? dateOnly(database.oldestOrder) : "None"}</strong></div><div><span>Latest order</span><strong>{database.newestOrder ? dateOnly(database.newestOrder) : "None"}</strong></div></div>
       <div className="bd-db-detail-grid"><Panel title="Orders by status" eyebrow="LIVE DATABASE"><div className="bd-stat-lines">{database.statuses.map((item) => <div key={item.status}><span>{item.status}</span><strong>{item.count}</strong></div>)}</div></Panel><Panel title="Table storage" eyebrow="POSTGRESQL"><div className="bd-stat-lines">{database.sizes.length ? database.sizes.map((item) => <div key={item.name}><span>{item.name}</span><strong>{(item.bytes / 1024).toFixed(1)} KB</strong></div>) : <p className="bd-muted">Storage size is unavailable for this database.</p>}</div></Panel></div>
     </>}
+    <FreshStart request={request} onDone={() => queryClient.invalidateQueries()} />
     <section className="bd-danger-zone"><div><span className="bd-overline">DESTRUCTIVE ACTION</span><h2>Delete stored records</h2><p>Customer records are derived from orders. Deleting orders removes those records from customer views. This cannot be undone.</p></div>
       <form onSubmit={remove}>
         <label>Data type<select value={target} onChange={(event) => setTarget(event.target.value as "orders" | "analytics")}><option value="orders">Orders</option><option value="analytics">Daily analytics</option></select></label>
