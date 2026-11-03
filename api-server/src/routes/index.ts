@@ -5,6 +5,7 @@ import adminRouter from "./admin";
 import paymentsRouter from "./payments";
 import myOrdersRouter from "./myorders";
 import reviewsRouter from "./reviews";
+import resetRouter from "./reset";
 
 const router: IRouter = Router();
 
@@ -13,6 +14,7 @@ router.use(storeRouter);
 router.use(paymentsRouter);
 router.use(myOrdersRouter);
 router.use(reviewsRouter);
+router.use("/admin/reset", resetRouter);
 router.use("/admin", adminRouter);
 
 export default router;

@@ -32,7 +32,7 @@ const ADMIN_SESSION_TTL_SECONDS = 30 * 60;
 
 const getSessionSecret = () => process.env.SESSION_SECRET ?? "";
 
-const safeEqual = (left: string, right: string) => {
+export const safeEqual = (left: string, right: string) => {
   const leftBuffer = Buffer.from(left);
   const rightBuffer = Buffer.from(right);
   return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
@@ -227,6 +227,7 @@ export const initializeStore = async (): Promise<void> => {
     await db.execute(sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS upi_discount_percent real NOT NULL DEFAULT 1.5`);
     await db.execute(sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS upi_discount_up_to real`);
     await db.execute(sql`CREATE TABLE IF NOT EXISTS store_settings (key text PRIMARY KEY, value text NOT NULL)`);
+    await db.execute(sql`CREATE TABLE IF NOT EXISTS admin_audit (id text PRIMARY KEY, action text NOT NULL, detail text NOT NULL, created_at timestamptz NOT NULL)`);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS orders_device_hash_idx ON orders (device_hash)`);
     await db.execute(sql`CREATE TABLE IF NOT EXISTS listener_heartbeats (
       device_id text PRIMARY KEY,
