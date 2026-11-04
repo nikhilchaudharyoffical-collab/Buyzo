@@ -159,6 +159,8 @@ const toProduct = (row: ProductRow): Product => ({
   reviewsEnabled: row.reviewsEnabled,
   upiDiscountPercent: row.upiDiscountPercent,
   upiDiscountUpTo: row.upiDiscountUpTo ?? null,
+  codEnabled: row.codEnabled,
+  upiEnabled: row.upiEnabled,
 });
 
 export const toOrder = (row: OrderRow): Order => ({
@@ -226,6 +228,8 @@ export const initializeStore = async (): Promise<void> => {
     await db.execute(sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS reviews_enabled boolean NOT NULL DEFAULT true`);
     await db.execute(sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS upi_discount_percent real NOT NULL DEFAULT 1.5`);
     await db.execute(sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS upi_discount_up_to real`);
+    await db.execute(sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS cod_enabled boolean NOT NULL DEFAULT true`);
+    await db.execute(sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS upi_enabled boolean NOT NULL DEFAULT true`);
     await db.execute(sql`CREATE TABLE IF NOT EXISTS store_settings (key text PRIMARY KEY, value text NOT NULL)`);
     await db.execute(sql`CREATE TABLE IF NOT EXISTS admin_audit (id text PRIMARY KEY, action text NOT NULL, detail text NOT NULL, created_at timestamptz NOT NULL)`);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS orders_device_hash_idx ON orders (device_hash)`);
@@ -314,6 +318,10 @@ router.post("/products", requireAdminAuth, async (req, res) => {
     return;
   }
 
+  if (parsed.data.codEnabled === false && parsed.data.upiEnabled === false) {
+    res.status(400).json({ error: "Keep at least one payment method on (COD or UPI)." });
+    return;
+  }
   const [row] = await db
     .insert(productsTable)
     .values({
@@ -333,6 +341,15 @@ router.patch("/products/:productId", requireAdminAuth, async (req, res) => {
   if (!params.success || !body.success) {
     res.status(400).json({ error: "Invalid product update" });
     return;
+  }
+  if (body.data.codEnabled === false || body.data.upiEnabled === false) {
+    const [existing] = await db.select().from(productsTable).where(eq(productsTable.id, params.data.productId));
+    const cod = body.data.codEnabled ?? existing?.codEnabled ?? true;
+    const upi = body.data.upiEnabled ?? existing?.upiEnabled ?? true;
+    if (!cod && !upi) {
+      res.status(400).json({ error: "Keep at least one payment method on (COD or UPI)." });
+      return;
+    }
   }
 
   const [row] = await db
@@ -405,6 +422,10 @@ router.post("/orders", rateLimit("orders", 10, 10 * 60_000), async (req, res) =>
         .where(eq(productsTable.id, input.productId))
         .for("update");
       if (!product) throw new OrderError(404, "This product is no longer available");
+      // The admin decides per product which payment methods are accepted.
+      const wantsUpi = (input.paymentMethod as string) === "UPI";
+      if (wantsUpi && !product.upiEnabled) throw new OrderError(409, "UPI payment isn't available for this product. Please choose another payment method.");
+      if (!wantsUpi && !product.codEnabled) throw new OrderError(409, "Cash on delivery isn't available for this product. Please pay by UPI.");
       // Buy 1 get 1 free: every unit bought brings one free unit, so both come out of stock.
       const freeQuantity = product.bogoEnabled ? input.quantity : 0;
       const units = input.quantity + freeQuantity;
