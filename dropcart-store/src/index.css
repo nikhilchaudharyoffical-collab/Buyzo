@@ -1025,3 +1025,18 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
 .sf-brand { position: relative; }
 .sf-brand-india { position: absolute; top: -1px; right: -26px; font-size: 7px; font-weight: 700; letter-spacing: .16em; line-height: 1; color: var(--sf-muted, #6b7078); text-transform: uppercase; pointer-events: none; }
 @media (max-width: 640px) { .sf-brand-india { font-size: 6px; right: -22px; } }
+
+/* Comic-style BUY 1 GET 1 FREE sticker: on the photo and on the Buy button corner */
+.bogo-sticker { display: block; overflow: visible; filter: drop-shadow(0 3px 4px rgba(20,22,30,.32)); pointer-events: none; }
+.sf-sticker { position: absolute; left: 8px; top: 52px; z-index: 2; width: 150px; height: auto; transform-origin: left top; animation: bogo-pop .5s cubic-bezier(.2,1.4,.4,1) both; }
+@keyframes bogo-pop { from { opacity: 0; transform: scale(.6) rotate(-10deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+.sf-cta-wrap { position: relative; width: 100%; }
+.sf-cta-sticker { position: absolute; right: -6px; top: -42px; z-index: 3; width: 92px; height: auto; }
+@media (max-width: 640px) {
+  .sf-sticker { width: 118px; top: 48px; left: 6px; }
+  .sf-buy .sf-cta-wrap { display: none; }
+  .sf-sticky .sf-cta-wrap { display: block; flex: 1; width: auto; }
+  .sf-sticky .sf-cta-wrap .sf-cta { width: 100%; }
+  .sf-cta-sticker { width: 78px; top: -40px; right: -4px; }
+}
+@media (prefers-reduced-motion: reduce) { .sf-sticker { animation: none; } }

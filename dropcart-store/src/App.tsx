@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type TouchEvent } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type TouchEvent } from "react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Route, Switch, useLocation, Router as WouterRouter } from "wouter";
 import {
@@ -135,6 +135,36 @@ function BogoBadge({ className = "", icon = true }: { className?: string; icon?:
   );
 }
 
+/** Bold "BUY 1 GET 1 FREE" sticker (drawn as SVG, so it stays sharp at any size). Placed on the photo and on the Buy button. */
+function BogoSticker({ className = "" }: { className?: string }) {
+  const uid = useId().replace(/:/g, "");
+  return (
+    <svg className={`bogo-sticker ${className}`} viewBox="0 0 220 168" role="img" aria-label="Buy 1 Get 1 Free" focusable="false">
+      <defs>
+        <linearGradient id={`${uid}r`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ff5a3c" /><stop offset="1" stopColor="#d9141e" /></linearGradient>
+        <linearGradient id={`${uid}y`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ffe14a" /><stop offset="1" stopColor="#ffb000" /></linearGradient>
+      </defs>
+      <g transform="rotate(-7 110 84)">
+        {/* burst rays */}
+        <g strokeLinecap="round" strokeWidth="7">
+          <path d="M16 58 L34 64" stroke="#ffb000" /><path d="M10 80 L30 80" stroke="#ff4b2e" /><path d="M16 102 L34 96" stroke="#ffb000" />
+          <path d="M204 52 L188 60" stroke="#ff4b2e" /><path d="M210 76 L192 78" stroke="#ffb000" />
+        </g>
+        <g className="bogo-sticker-text" strokeLinejoin="round" strokeLinecap="round" paintOrder="stroke fill" fontFamily="Impact, 'Arial Black', 'Helvetica Neue', Arial, sans-serif" fontWeight="900" fontStyle="italic">
+          <text x="30" y="62" fontSize="54" textLength="92" lengthAdjust="spacingAndGlyphs" fill={`url(#${uid}r)`} stroke="#fff" strokeWidth="11">BUY</text>
+          <text x="134" y="66" fontSize="86" fill={`url(#${uid}r)`} stroke="#fff" strokeWidth="12">1</text>
+          <text x="20" y="118" fontSize="62" textLength="108" lengthAdjust="spacingAndGlyphs" fill={`url(#${uid}y)`} stroke="#fff" strokeWidth="12">GET</text>
+          <text x="142" y="122" fontSize="86" fill={`url(#${uid}y)`} stroke="#fff" strokeWidth="12">1</text>
+        </g>
+        <g transform="rotate(-3 110 144)">
+          <rect x="28" y="124" width="164" height="38" rx="8" fill={`url(#${uid}r)`} stroke="#fff" strokeWidth="5" />
+          <text x="110" y="153" textAnchor="middle" fontSize="33" fontFamily="Impact, 'Arial Black', 'Helvetica Neue', Arial, sans-serif" fontWeight="900" fontStyle="italic" letterSpacing="3" fill="#fff" stroke="#9c0d16" strokeWidth="1.5" paintOrder="stroke fill">FREE</text>
+        </g>
+      </g>
+    </svg>
+  );
+}
+
 function ProductGallery({ product }: { product: Product }) {
   const [active, setActive] = useState(0);
   const touchStartX = useState({ current: 0 })[0];
@@ -164,7 +194,7 @@ function ProductGallery({ product }: { product: Product }) {
         <img src={product.images[active]} alt={`${product.name}, photo ${active + 1} of ${count}`} />
         {discountPercent > 0 && <span className="sf-off">{discountPercent}% off</span>}
         <span className="sf-new">Just dropped</span>
-        {product.bogoEnabled && <BogoBadge className="sf-bogo" />}
+        {product.bogoEnabled && <BogoSticker className="sf-sticker" />}
         {count > 1 && (
           <>
             <button type="button" className="sf-arrow prev" aria-label="Previous photo" onClick={() => goTo(active - 1)}><ChevronLeft size={20} /></button>
@@ -205,7 +235,14 @@ const upiOffer = (product: Product) => {
   const actual = product.upiDiscountPercent ?? 0;
   const upTo = product.upiDiscountUpTo != null && product.upiDiscountUpTo > actual ? product.upiDiscountUpTo : null;
   const shown = upTo ?? actual;
-  return { actual, active: actual > 0 || !!upTo, shown, short: `${upTo ? "Up to " : ""}${fmtPct(shown)}% off`, extra: `${upTo ? "Up to " : "Extra "}${fmtPct(shown)}% off` };
+  return { actual, active: product.upiEnabled !== false && (actual > 0 || !!upTo), shown, short: `${upTo ? "Up to " : ""}${fmtPct(shown)}% off`, extra: `${upTo ? "Up to " : "Extra "}${fmtPct(shown)}% off` };
+};
+
+/** Which payment methods this product accepts, and the words for them. */
+const payModes = (product: Product) => {
+  const cod = product.codEnabled !== false;
+  const upi = product.upiEnabled !== false;
+  return { cod, upi, both: cod && upi, label: cod && upi ? "UPI or cash on delivery" : upi ? "UPI only" : "Cash on delivery only" };
 };
 
 const formatLongDate = (date: string | Date) =>
@@ -277,7 +314,7 @@ function PurchaseModal({
   const [restored] = useState(() => loadPendingUpi(product.id));
   const [step, setStep] = useState<"details" | "payment">(restored ? "payment" : "details");
   const [quantity, setQuantity] = useState(restored?.order.quantity ?? 1);
-  const [payment, setPayment] = useState<OrderInputPaymentMethod>(restored ? OrderInputPaymentMethod.UPI : OrderInputPaymentMethod.COD);
+  const [payment, setPayment] = useState<OrderInputPaymentMethod>(restored ? OrderInputPaymentMethod.UPI : product.codEnabled === false ? OrderInputPaymentMethod.UPI : OrderInputPaymentMethod.COD);
   const [name, setName] = useState(restored?.order.customerName ?? "");
   const [contact, setContact] = useState(restored?.order.customerContact ?? "");
   const [address, setAddress] = useState(restored?.order.address ?? "");
@@ -479,7 +516,7 @@ function PurchaseModal({
                   <span className="field-label">Quantity</span>
                   <div className="stepper"><button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))}>−</button><strong>{quantity}</strong><button type="button" onClick={() => setQuantity(Math.min(maxQuantity, quantity + 1))}>+</button></div>
                 </div>
-                <div className="delivery-preview"><span className="field-label">Estimated delivery</span><strong>{formatDate(getDeliveryDate(10))}</strong><span>Pay by UPI to get it by {formatDate(getDeliveryDate(5))}</span></div>
+                <div className="delivery-preview"><span className="field-label">Estimated delivery</span><strong>{formatDate(getDeliveryDate(product.codEnabled === false ? 5 : 10))}</strong>{product.codEnabled !== false && product.upiEnabled !== false && <span>Pay by UPI to get it by {formatDate(getDeliveryDate(5))}</span>}</div>
               </div>
               <div className="order-total"><span>Subtotal{freeQuantity > 0 ? ` · ${quantity + freeQuantity} units` : ""}</span><strong>{money(subtotal)}</strong></div>
               <button className="primary-button wide">Continue to payment <ArrowRight size={17} /></button>
@@ -497,10 +534,10 @@ function PurchaseModal({
 
             <span className="field-label pay-label">Payment method</span>
             <div className="payment-options">
-              <button type="button" className={`payment-option ${payment === OrderInputPaymentMethod.COD ? "selected" : ""} ${justSelected === OrderInputPaymentMethod.COD ? "just-selected" : ""}`} onClick={() => selectPayment(OrderInputPaymentMethod.COD)}>
+              {product.codEnabled !== false && <button type="button" className={`payment-option ${payment === OrderInputPaymentMethod.COD ? "selected" : ""} ${justSelected === OrderInputPaymentMethod.COD ? "just-selected" : ""}`} onClick={() => selectPayment(OrderInputPaymentMethod.COD)}>
                 <span className="payment-icon"><Package size={17} /></span><span><strong>Cash on delivery</strong><small>Pay when your order arrives</small></span>{payment === OrderInputPaymentMethod.COD && <Check size={17} className="payment-check" />}
-              </button>
-              <div className={`upi-card-wrap ${payment === OrderInputPaymentMethod.UPI ? "is-unlocked" : "is-locked"} ${unlocking ? "unlocking" : ""}`}>
+              </button>}
+              {product.upiEnabled !== false && <div className={`upi-card-wrap ${payment === OrderInputPaymentMethod.UPI ? "is-unlocked" : "is-locked"} ${unlocking ? "unlocking" : ""}`}>
                 <div className="upi-offer-strip">
                   {[
                     ...(offer.active ? [{ Icon: Percent, label: offer.short }] : []),
@@ -535,7 +572,7 @@ function PurchaseModal({
                 {unlocking && (
                   <div key={`t${unlock}`} className="offer-toast"><Sparkles size={13} fill="currentColor" /> {offer.active ? 3 : 2} offers unlocked</div>
                 )}
-              </div>
+              </div>}
             </div>
 
             <div className="pay-actions">
@@ -602,6 +639,7 @@ function ProductPage() {
     trackEvent.mutate({ data: { type: "click", productId: product.id } });
     setCheckoutOpen(true);
   };
+  const modes = payModes(product);
   const upiArrival = formatLongDate(getDeliveryDate(5));
   const codArrival = formatLongDate(getDeliveryDate(10));
 
@@ -651,8 +689,13 @@ function ProductPage() {
             <div className="sf-ship">
               <Truck size={18} />
               <div>
-                <strong>Delivery by {upiArrival} with UPI</strong>
-                <span>or by {codArrival} with cash on delivery</span>
+                {modes.both ? (
+                  <><strong>Delivery by {upiArrival} with UPI</strong><span>or by {codArrival} with cash on delivery</span></>
+                ) : modes.upi ? (
+                  <><strong>Delivery by {upiArrival}</strong><span>Pay by UPI</span></>
+                ) : (
+                  <><strong>Delivery by {codArrival}</strong><span>Cash on delivery</span></>
+                )}
               </div>
             </div>
 
@@ -661,8 +704,11 @@ function ProductPage() {
             </p>
 
             {product.bogoEnabled && !soldOut && <BogoBadge className="sf-bogo-strip" />}
-            <button className="sf-cta" onClick={openCheckout} disabled={soldOut}>{soldOut ? "Out of stock" : "Buy now"}</button>
-            <p className="sf-cta-note"><LockKeyhole size={13} /> Pay by UPI or cash on delivery. No account needed.</p>
+            <div className="sf-cta-wrap">
+              {product.bogoEnabled && !soldOut && <BogoSticker className="sf-cta-sticker" />}
+              <button className="sf-cta" onClick={openCheckout} disabled={soldOut}>{soldOut ? "Out of stock" : "Buy now"}</button>
+            </div>
+            <p className="sf-cta-note"><LockKeyhole size={13} /> {modes.both ? "Pay by UPI or cash on delivery." : modes.upi ? "Pay by UPI." : "Pay with cash on delivery."} No account needed.</p>
 
             <ul className="sf-trust">
               <li><Truck size={20} /><span>Free delivery</span></li>
@@ -678,8 +724,8 @@ function ProductPage() {
             <p>{product.description}</p>
             <dl className="sf-table">
               <div><dt>Category</dt><dd>{product.category}</dd></div>
-              <div><dt>Payment</dt><dd>UPI or cash on delivery</dd></div>
-              <div><dt>Delivery</dt><dd>About 5 days with UPI, about 10 days with cash on delivery</dd></div>
+              <div><dt>Payment</dt><dd>{modes.label}</dd></div>
+              <div><dt>Delivery</dt><dd>{modes.both ? "About 5 days with UPI, about 10 days with cash on delivery" : modes.upi ? "About 5 days" : "About 10 days"}</dd></div>
               <div><dt>Returns</dt><dd>7 days after delivery</dd></div>
             </dl>
           </div>
@@ -690,7 +736,7 @@ function ProductPage() {
           <div className="sf-faq">
             <details open>
               <summary>How long does delivery take?<ChevronRight size={16} /></summary>
-              <p>Orders paid with UPI arrive in about 5 days. Cash on delivery orders arrive in about 10 days. Delivery is free on every order.</p>
+              <p>{modes.both ? "Orders paid with UPI arrive in about 5 days. Cash on delivery orders arrive in about 10 days." : modes.upi ? "Orders arrive in about 5 days." : "Orders arrive in about 10 days."} Delivery is free on every order.</p>
             </details>
             <details>
               <summary>How do I track, cancel or return an order?<ChevronRight size={16} /></summary>
@@ -702,7 +748,7 @@ function ProductPage() {
             </details>
             <details>
               <summary>Which payment methods can I use?<ChevronRight size={16} /></summary>
-              <p>Pay with any UPI app (PhonePe, Google Pay, Paytm and more) {upiOffer(product).active ? `and get ${upiOffer(product).extra.toLowerCase()}, or choose cash on delivery.` : "or choose cash on delivery."}</p>
+              <p>{!modes.upi ? "This product is sold with cash on delivery: pay when your order arrives." : `Pay with any UPI app (PhonePe, Google Pay, Paytm and more)${upiOffer(product).active ? ` and get ${upiOffer(product).extra.toLowerCase()}` : ""}${modes.cod ? ", or choose cash on delivery." : "."}`}</p>
             </details>
           </div>
         </section>
@@ -714,14 +760,17 @@ function ProductPage() {
         <div className="sf-footer-in">
           <img className="sf-footer-logo" src={`${import.meta.env.BASE_URL}brand/logo.png`} alt="BuyDo" />
           <p>Free delivery, 7-day returns and secure payments on every order.</p>
-          <span className="sf-pay"><PayIcon brand="upi" size={22} /> UPI and cash on delivery</span>
+          <span className="sf-pay"><PayIcon brand="upi" size={22} /> {modes.both ? "UPI and cash on delivery" : modes.upi ? "UPI payments" : "Cash on delivery"}</span>
           <small>© {new Date().getFullYear()} BuyDo. All rights reserved.</small>
         </div>
       </footer>
 
       <div className="sf-sticky">
-        <div><small>Price</small><strong>{money(product.price)}</strong>{product.bogoEnabled && !soldOut && <BogoBadge className="sf-bogo-mini" icon={false} />}</div>
-        <button className="sf-cta" onClick={openCheckout} disabled={soldOut}>{soldOut ? "Out of stock" : "Buy now"}</button>
+        <div><small>Price</small><strong>{money(product.price)}</strong></div>
+        <div className="sf-cta-wrap">
+          {product.bogoEnabled && !soldOut && <BogoSticker className="sf-cta-sticker" />}
+          <button className="sf-cta" onClick={openCheckout} disabled={soldOut}>{soldOut ? "Out of stock" : "Buy now"}</button>
+        </div>
       </div>
       {isCheckoutOpen && <PurchaseModal product={product} onClose={() => setCheckoutOpen(false)} />}
     </div>
