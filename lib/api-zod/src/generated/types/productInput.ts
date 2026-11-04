@@ -32,4 +32,6 @@ export interface ProductInput {
   reviewsEnabled?: boolean;
   upiDiscountPercent?: number;
   upiDiscountUpTo?: number | null;
+  codEnabled?: boolean;
+  upiEnabled?: boolean;
 }
