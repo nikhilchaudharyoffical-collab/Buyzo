@@ -35,7 +35,9 @@ export const ListProductsResponseItem = zod.object({
   "bogoEnabled": zod.boolean(),
   "reviewsEnabled": zod.boolean(),
   "upiDiscountPercent": zod.number(),
-  "upiDiscountUpTo": zod.number().nullish()
+  "upiDiscountUpTo": zod.number().nullish(),
+  "codEnabled": zod.boolean(),
+  "upiEnabled": zod.boolean()
 })
 export const ListProductsResponse = zod.array(ListProductsResponseItem)
 
@@ -73,7 +75,9 @@ export const CreateProductBody = zod.object({
   "bogoEnabled": zod.boolean().optional(),
   "reviewsEnabled": zod.boolean().optional(),
   "upiDiscountPercent": zod.number().min(0).max(50).optional(),
-  "upiDiscountUpTo": zod.number().min(0).max(100).nullish()
+  "upiDiscountUpTo": zod.number().min(0).max(100).nullish(),
+  "codEnabled": zod.boolean().optional(),
+  "upiEnabled": zod.boolean().optional()
 })
 
 export const CreateProductResponse = zod.object({
@@ -91,7 +95,9 @@ export const CreateProductResponse = zod.object({
   "bogoEnabled": zod.boolean(),
   "reviewsEnabled": zod.boolean(),
   "upiDiscountPercent": zod.number(),
-  "upiDiscountUpTo": zod.number().nullish()
+  "upiDiscountUpTo": zod.number().nullish(),
+  "codEnabled": zod.boolean(),
+  "upiEnabled": zod.boolean()
 })
 
 
@@ -132,7 +138,9 @@ export const UpdateProductBody = zod.object({
   "bogoEnabled": zod.boolean().optional(),
   "reviewsEnabled": zod.boolean().optional(),
   "upiDiscountPercent": zod.number().min(0).max(50).optional(),
-  "upiDiscountUpTo": zod.number().min(0).max(100).nullish()
+  "upiDiscountUpTo": zod.number().min(0).max(100).nullish(),
+  "codEnabled": zod.boolean().optional(),
+  "upiEnabled": zod.boolean().optional()
 })
 
 export const UpdateProductResponse = zod.object({
@@ -150,7 +158,9 @@ export const UpdateProductResponse = zod.object({
   "bogoEnabled": zod.boolean(),
   "reviewsEnabled": zod.boolean(),
   "upiDiscountPercent": zod.number(),
-  "upiDiscountUpTo": zod.number().nullish()
+  "upiDiscountUpTo": zod.number().nullish(),
+  "codEnabled": zod.boolean(),
+  "upiEnabled": zod.boolean()
 })
 
 
