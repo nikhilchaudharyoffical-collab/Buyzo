@@ -35,6 +35,9 @@ export const productsTable = pgTable("products", {
   // Percent taken off when the customer pays by UPI (what is really given), and the optional "up to" number shown on the store.
   upiDiscountPercent: real("upi_discount_percent").notNull().default(1.5),
   upiDiscountUpTo: real("upi_discount_up_to"),
+  // Which payment methods this product accepts (at least one must stay on).
+  codEnabled: boolean("cod_enabled").notNull().default(true),
+  upiEnabled: boolean("upi_enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .defaultNow()
     .notNull(),
