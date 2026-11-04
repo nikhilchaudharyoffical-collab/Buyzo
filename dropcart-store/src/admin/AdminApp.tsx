@@ -118,7 +118,7 @@ type ListenerStatus = { lastSeen: string | null; listenerEnabled?: boolean | nul
 type UnmatchedPayment = { id: string; amount: number; sender: string; text: string; postedAt: string };
 type ProductForm = ProductInput;
 type ProductNumericField = "price" | "compareAtPrice" | "stock" | "rating" | "reviewCount" | "upiDiscountPercent";
-type ProductDraft = Omit<ProductForm, ProductNumericField> & Record<ProductNumericField, string> & { bogoEnabled: boolean; reviewsEnabled: boolean; upiDiscountUpTo: string };
+type ProductDraft = Omit<ProductForm, ProductNumericField> & Record<ProductNumericField, string> & { bogoEnabled: boolean; reviewsEnabled: boolean; upiDiscountUpTo: string; codEnabled: boolean; upiEnabled: boolean };
 
 const palette = ["#236b5d", "#edae49", "#4664a8", "#d97054", "#82978b"];
 const currency = (amount: number) => `₹${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -633,6 +633,8 @@ function ProductsView({ products, loading, error, saveProduct, deleteProduct, pe
       highlights: product?.highlights.length ? [...product.highlights] : [""],
       upiDiscountPercent: String(product?.upiDiscountPercent ?? 1.5),
       upiDiscountUpTo: product?.upiDiscountUpTo != null ? String(product.upiDiscountUpTo) : "",
+      codEnabled: product?.codEnabled ?? true,
+      upiEnabled: product?.upiEnabled ?? true,
       bogoEnabled: product?.bogoEnabled ?? false,
       reviewsEnabled: product?.reviewsEnabled ?? true,
     });
@@ -644,6 +646,10 @@ function ProductsView({ products, loading, error, saveProduct, deleteProduct, pe
     const images = form.images.map((image) => image.trim()).filter(Boolean);
     if (!images.length) {
       setFormError("Add at least one product image URL.");
+      return;
+    }
+    if (!form.codEnabled && !form.upiEnabled) {
+      setFormError("Keep at least one payment method on (Cash on delivery or UPI).");
       return;
     }
     const actualPercent = Number(form.upiDiscountPercent);
@@ -680,12 +686,16 @@ function ProductsView({ products, loading, error, saveProduct, deleteProduct, pe
   const removeImage = (index: number) => setForm((current) => current && ({ ...current, images: current.images.length > 1 ? current.images.filter((_, itemIndex) => itemIndex !== index) : current.images }));
   return <div className="bd-content">
     <div className="bd-page-intro"><div><h2>Product catalog</h2><p>Catalog data and available stock are managed in the live database.</p></div><button className="bd-button primary" onClick={() => startEdit()}><Plus size={16} /> Add product</button></div>
-    {loading ? <ListSkeleton rows={4} /> : error ? <div className="bd-state error">{error.message}</div> : <div className="bd-product-list">{products.map((product) => <article className="bd-product-row" key={product.id}><img src={product.images[0]} alt="" /><div className="bd-product-info"><strong>{product.name}</strong><small>{product.category} · {product.id}</small><span className="bd-prod-flags">{product.bogoEnabled && <span className="bd-chip ok">Buy 1 Get 1</span>}<span className="bd-chip">UPI {product.upiDiscountPercent}% off</span>{!product.reviewsEnabled && <span className="bd-chip bad">Reviews off</span>}</span></div><div><small>Price</small><strong>{currency(product.price)}</strong></div><div><small>Available</small><strong className={product.stock < 10 ? "warning" : ""}>{product.stock}</strong></div><button className="bd-button secondary compact" onClick={() => startEdit(product)}>Edit</button><button className="bd-icon-button subtle-danger" aria-label={`Delete ${product.name}`} onClick={() => window.confirm(`Remove ${product.name} from the catalog? Existing orders stay in the database.`) && deleteProduct(product.id)} disabled={pending}><Trash2 size={15} /></button></article>)}{!products.length && <EmptyState label="No products in the catalog" />}</div>}
+    {loading ? <ListSkeleton rows={4} /> : error ? <div className="bd-state error">{error.message}</div> : <div className="bd-product-list">{products.map((product) => <article className="bd-product-row" key={product.id}><img src={product.images[0]} alt="" /><div className="bd-product-info"><strong>{product.name}</strong><small>{product.category} · {product.id}</small><span className="bd-prod-flags">{product.bogoEnabled && <span className="bd-chip ok">Buy 1 Get 1</span>}{product.upiEnabled && <span className="bd-chip">UPI {product.upiDiscountPercent}% off</span>}{!product.codEnabled && <span className="bd-chip">UPI only</span>}{!product.upiEnabled && <span className="bd-chip">COD only</span>}{!product.reviewsEnabled && <span className="bd-chip bad">Reviews off</span>}</span></div><div><small>Price</small><strong>{currency(product.price)}</strong></div><div><small>Available</small><strong className={product.stock < 10 ? "warning" : ""}>{product.stock}</strong></div><button className="bd-button secondary compact" onClick={() => startEdit(product)}>Edit</button><button className="bd-icon-button subtle-danger" aria-label={`Delete ${product.name}`} onClick={() => window.confirm(`Remove ${product.name} from the catalog? Existing orders stay in the database.`) && deleteProduct(product.id)} disabled={pending}><Trash2 size={15} /></button></article>)}{!products.length && <EmptyState label="No products in the catalog" />}</div>}
     {form && <div className="bd-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setForm(null)}><section className="bd-product-modal"><header><div><span className="bd-overline">CATALOG</span><h2>{editingId ? "Edit product" : "Add product"}</h2></div><button className="bd-icon-button" onClick={() => setForm(null)} aria-label="Close"><X size={17} /></button></header><form onSubmit={submit}>
       <div className="bd-form-grid"><label>Name<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label><label>Category<input required value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} /></label><label>Price<input required type="number" min="0" step="0.01" placeholder="e.g. 1299" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} /></label><label>Compare-at price<input required type="number" min="0" step="0.01" placeholder="e.g. 1999" value={form.compareAtPrice} onChange={(event) => setForm({ ...form, compareAtPrice: event.target.value })} /></label><label>Available stock<input required type="number" min="0" step="1" placeholder="e.g. 25" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} /></label><label>Rating<input required type="number" min="0" max="5" step="0.1" placeholder="0 to 5" value={form.rating} onChange={(event) => setForm({ ...form, rating: event.target.value })} /></label><label>Review count<input required type="number" min="0" step="1" placeholder="e.g. 0" value={form.reviewCount} onChange={(event) => setForm({ ...form, reviewCount: event.target.value })} /></label></div>
       <section className="bd-form-grid bd-upi-fields" aria-label="UPI discount">
         <label>UPI discount given (%)<input required type="number" min="0" max="50" step="0.1" value={form.upiDiscountPercent} onChange={(event) => setForm({ ...form, upiDiscountPercent: event.target.value })} /><small>Really taken off the price when the customer pays by UPI. 0 = no UPI discount.</small></label>
         <label>"Up to" % shown on the store <small>(optional)</small><input type="number" min="0" max="100" step="0.1" placeholder="Leave empty to show the real %" value={form.upiDiscountUpTo} onChange={(event) => setForm({ ...form, upiDiscountUpTo: event.target.value })} /><small>Shows "Up to X% off" on the badge. Keep it honest: use it only if some orders can really get that much.</small></label>
+      </section>
+      <section className="bd-switches" aria-label="Payment methods">
+        <label className="bd-switch-row"><input type="checkbox" checked={form.codEnabled} onChange={(event) => setForm({ ...form, codEnabled: event.target.checked })} /><span className="bd-switch" aria-hidden="true" /><span><strong>Cash on delivery</strong><small>Customers can choose to pay when the order arrives.</small></span></label>
+        <label className="bd-switch-row"><input type="checkbox" checked={form.upiEnabled} onChange={(event) => setForm({ ...form, upiEnabled: event.target.checked })} /><span className="bd-switch" aria-hidden="true" /><span><strong>UPI payment</strong><small>Customers can pay online by UPI (with the UPI discount set above). Keep at least one method on.</small></span></label>
       </section>
       <section className="bd-switches" aria-label="Product options">
         <label className="bd-switch-row"><input type="checkbox" checked={form.bogoEnabled} onChange={(event) => setForm({ ...form, bogoEnabled: event.target.checked })} /><span className="bd-switch" aria-hidden="true" /><span><strong>Buy 1 Get 1 Free</strong><small>Every unit bought brings one free unit. Both come out of stock, and the customer sees it at billing.</small></span></label>
