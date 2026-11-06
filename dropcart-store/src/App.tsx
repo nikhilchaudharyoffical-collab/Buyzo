@@ -194,7 +194,7 @@ function ProductGallery({ product }: { product: Product }) {
         <img src={product.images[active]} alt={`${product.name}, photo ${active + 1} of ${count}`} />
         {discountPercent > 0 && <span className="sf-off">{discountPercent}% off</span>}
         <span className="sf-new">Just dropped</span>
-        {product.bogoEnabled && <BogoSticker className="sf-sticker" />}
+        {product.bogoEnabled && <BogoBadge className="sf-bogo" />}
         {count > 1 && (
           <>
             <button type="button" className="sf-arrow prev" aria-label="Previous photo" onClick={() => goTo(active - 1)}><ChevronLeft size={20} /></button>

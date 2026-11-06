@@ -813,8 +813,9 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
 .sf-secure svg { color: var(--sf-green); }
 
 .sf-main { max-width: 1200px; margin: 0 auto; padding: 0 24px 24px; }
-.sf-crumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 18px 0 16px; color: var(--sf-muted); font-size: 13px; }
-.sf-crumbs strong { color: var(--sf-ink); font-weight: 600; }
+.sf-crumbs { display: flex; align-items: center; flex-wrap: nowrap; overflow: hidden; gap: 6px; padding: 18px 0 16px; color: var(--sf-muted); font-size: 13px; }
+.sf-crumbs > span, .sf-crumbs > svg { flex: none; }
+.sf-crumbs strong { color: var(--sf-ink); font-weight: 600; flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sf-crumbs svg { color: #a3a9b5; }
 
 .sf-product { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); gap: 56px; align-items: start; }
@@ -825,8 +826,8 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
 .sf-thumbs button { width: 72px; height: 72px; padding: 0; overflow: hidden; border: 1.5px solid var(--sf-line); border-radius: 10px; background: var(--sf-soft); }
 .sf-thumbs button.active { border-color: var(--sf-brand); box-shadow: 0 0 0 2px rgba(108,86,231,.18); }
 .sf-thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.sf-stage { position: relative; aspect-ratio: 1 / 1; overflow: hidden; border-radius: 16px; background: var(--sf-soft); touch-action: pan-y; }
-.sf-stage > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sf-stage { position: relative; aspect-ratio: 1 / 1; overflow: hidden; border-radius: 16px; background: #fff; border: 1px solid var(--sf-line, #ececf1); touch-action: pan-y; }
+.sf-stage > img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .sf-off { position: absolute; left: 14px; top: 14px; padding: 5px 10px; border-radius: 8px; background: var(--sf-green); color: #fff; font-size: 12.5px; font-weight: 700; }
 .sf-arrow { position: absolute; top: 50%; width: 40px; height: 40px; margin-top: -20px; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(255,255,255,.94); color: var(--sf-ink); box-shadow: 0 1px 3px rgba(20,22,30,.18); }
 .sf-arrow.prev { left: 12px; }
@@ -838,7 +839,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
 
 /* buy box */
 .sf-buy { min-width: 0; }
-.sf-buy h1 { margin: 0; font-size: 30px; line-height: 1.2; font-weight: 650; letter-spacing: -.015em; }
+.sf-buy h1 { margin: 0; font-size: 21px; line-height: 1.3; font-weight: 600; letter-spacing: -.01em; }
 .sf-sub { margin: 10px 0 14px; color: var(--sf-muted); font-size: 15px; line-height: 1.6; max-width: 62ch; }
 .sf-rating { margin-top: 12px; display: inline-flex; align-items: center; gap: 10px; color: var(--sf-muted); font-size: 13.5px; text-decoration: none; }
 .sf-rating:hover span:last-child { color: var(--sf-ink); text-decoration: underline; }
@@ -942,7 +943,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
   .sf-thumbs button { flex: none; width: 58px; height: 58px; }
   .sf-stage { border-radius: 12px; }
   .sf-arrow { display: none; }
-  .sf-buy h1 { font-size: 24px; }
+  .sf-buy h1 { font-size: 16px; line-height: 1.35; }
   .sf-price strong { font-size: 32px; }
   .sf-section { margin-top: 40px; padding-top: 28px; }
   .sf-section > h2 { font-size: 21px; }
@@ -956,7 +957,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--purple); box-sha
   .sf-sticky .sf-cta { width: auto; flex: 1; min-height: 48px; font-size: 16px; }
 }
 .sf-starrow { display: inline-flex; gap: 3px; color: #e8a21a; }
-@media (max-width: 640px) { .sf-stage { aspect-ratio: 1 / .9; } .sf-price { margin-top: 14px; } }
+@media (max-width: 640px) { .sf-stage { aspect-ratio: 1 / 1.04; } .sf-price { margin-top: 14px; } }
 .sf-new { position: absolute; right: 14px; top: 14px; padding: 5px 10px; border-radius: 8px; background: #fff; color: var(--sf-ink); font-size: 12.5px; font-weight: 650; box-shadow: 0 1px 3px rgba(20,22,30,.16); }
 
 /* ---- Reviews (small type on purpose) ---- */
